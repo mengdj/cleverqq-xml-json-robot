@@ -1,0 +1,7 @@
+EXPORTS
+
+IR_Create @1
+IR_Message @2
+IR_AllEvent @3
+IR_SetUp @4
+IR_DestroyPlugin @5
