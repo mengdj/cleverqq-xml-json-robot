@@ -21,6 +21,7 @@ extern HINSTANCE	szGlobalHinstance;
 HDC			szMemDc = NULL, szPngMemDc = NULL;
 HBITMAP		szCompatibleBitmap = NULL;
 HBRUSH szBrush[1] = { NULL };
+HFONT szFont[1] = {NULL};
 STB_IMAGE_DATA szStdImage[2];
 RECT szClientRect = { 0 }, szCloseRect = { 0 }, szDonateRect = { 0 }, szMenuBarRect = { 0 };
 MOUSE_POS	szMouse = { 0,0,0,0,0,0 };
@@ -60,7 +61,9 @@ LRESULT CALLBACK PluginWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 	DWORD resSize = 0;
 	static POINT point = { 0 };
 	static INT iRes[2] = { IDB_PNG_CLOSE ,IDB_PNG_DONATE };
-	static COLORREF cHoverColor = RGB(63, 63, 65);
+	static COLORREF cHoverColor = RGB(0xC0, 0xC0, 0xC0);
+	static WCHAR *wAppTitle = TEXT("QQ卡片机");
+	static SIZE appTitleSize = {0};
 	switch (message)
 	{
 	case WM_CREATE:
@@ -81,6 +84,12 @@ LRESULT CALLBACK PluginWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 		szDonateRect.bottom = szClientRect.bottom;
 
 		szBrush[0] = CreateSolidBrush(RGB(0x60, 0x4C, 0x40));
+		szFont[0] = CreateFont(
+			16, 0, 0, 0,
+			FW_THIN, FALSE, FALSE, FALSE,
+			GB2312_CHARSET, OUT_CHARACTER_PRECIS, CLIP_CHARACTER_PRECIS, DEFAULT_QUALITY,
+			FF_MODERN, TEXT("方正细黑一简体")
+		);
 		for (int i = 0; i < 2; i++) {
 			if ((resSize = LoadResourceFromRes(szGlobalHinstance, iRes[i], &resBuff, TEXT("PNG")))) {
 				memset(&szStdImage[i], 0, sizeof(STB_IMAGE_DATA));
@@ -117,6 +126,11 @@ LRESULT CALLBACK PluginWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 			szCompatibleBitmap = CreateCompatibleBitmap(hdc, szClientRect.right, szClientRect.bottom);
 			SelectObject(szMemDc, szCompatibleBitmap);
 			SetBkMode(szMemDc, TRANSPARENT);
+			if (szFont[0]) {
+				SelectObject(szMemDc, szFont[0]);
+				SetTextColor(szMemDc, RGB(0xFF, 0xFF, 0xFF));
+				GetTextExtentPoint32(szMemDc, wAppTitle, lstrlen(wAppTitle), &appTitleSize);
+			}
 		}
 		if (!szPngMemDc) {
 			szPngMemDc = CreateCompatibleDC(hdc);
@@ -125,7 +139,10 @@ LRESULT CALLBACK PluginWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 		//双缓冲绘图
 		Rectangle(szMemDc, szClientRect.left, szClientRect.top, szClientRect.right, szClientRect.bottom);
 		FillRect(szMemDc, &szMenuBarRect, szBrush[0]);
-		//绘制关闭按钮
+		//绘制标题
+		if (appTitleSize.cx&&appTitleSize.cy) {
+			TextOut(szMemDc, 5, 20 - (appTitleSize.cy >> 1), wAppTitle, lstrlen(wAppTitle));
+		}
 		if (szStdImage[0].hBitmap) {
 			RenderAlphaBitmap(szMemDc, szPngMemDc, szStdImage[0].hBitmap, &szCloseRect, szStdImage[0].hover == TRUE ? cHoverColor : 0);
 		}
@@ -190,6 +207,13 @@ LRESULT CALLBACK PluginWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 			if (szBrush[i]) {
 				DeleteObject(szBrush[i]);
 				szBrush[i] = NULL;
+			}
+		}
+		//卸载字体
+		for (int i = 0; i < 1; i++) {
+			if (szFont[i]) {
+				DeleteObject(szFont[i]);
+				szFont[i] = NULL;
 			}
 		}
 		szShow = FALSE;
