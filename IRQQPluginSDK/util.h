@@ -4,9 +4,9 @@
 COLORREF	PixelAlpha(COLORREF clrSrc, double src_darken, COLORREF clrDest, double dest_darken);
 BOOL WINAPI AlphaBitBlt(HDC hDC, int nDestX, int nDestY, int dwWidth, int dwHeight, HDC hSrcDC, int nSrcX, int nSrcY, int wSrc, int hSrc, BLENDFUNCTION ftn);
 BOOL		RenderAlphaBitmap(HDC hdc, HDC hMemdc, HBITMAP hBitmap, RECT * pRect, DWORD dBackground);
-VOID BGRA2RGBA(CONST UINT * pIn, UINT * pOut, INT iW, INT iH, BOOL bTranslate);
-DWORD LoadResourceFromRes(HINSTANCE hInstace, int resId, LPVOID * outBuff, LPWSTR resType);
-VOID					CenterWindow(HWND);
+VOID		BGRA2RGBA(CONST UINT * pIn, UINT * pOut, INT iW, INT iH, BOOL bTranslate);
+DWORD		LoadResourceFromRes(HINSTANCE hInstace, int resId, LPVOID * outBuff, LPWSTR resType);
+VOID		CenterWindow(HWND);
 
 typedef struct {
 	LPBYTE				data;
@@ -23,6 +23,7 @@ typedef struct {
 	BOOL				u;				//是否使用
 	LPVOID				o;				//其他对象指针
 	HBITMAP				hBitmap;
+	BOOL				hover;
 } STB_IMAGE_DATA, *PSTB_IMAGE_DATA;
 
 typedef struct {

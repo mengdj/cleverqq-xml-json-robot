@@ -28,7 +28,7 @@ dllexp char *  _stdcall IR_Create(){
 	szInstance = GetModuleHandle(NULL);
 	char *szBuffer =
 	"插件名称{QQ卡片机}\n"
-	"插件版本{1.0.2}\n"
+	"插件版本{1.0.3}\n"
 	"插件作者{mengdj}\n"
 	"插件说明{发送json或xml转换成卡片,如没有返回则代表数据有误,请自行检查}\n"
 	"插件skey{5EQ78SIBEUU7JWIA4192YDBT}"

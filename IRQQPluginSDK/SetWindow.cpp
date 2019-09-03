@@ -8,7 +8,7 @@
 #include "resource.h"
 #include <time.h>
 #define WS_CLIENT_WIDTH		302
-#define WS_CLIENT_HEIGHT	432
+#define WS_CLIENT_HEIGHT	460
 #define LOG_TRACE(...)					xLog(__LINE__, __VA_ARGS__)
 
 LRESULT CALLBACK	PluginWndProc(HWND, UINT, WPARAM, LPARAM);
@@ -18,16 +18,16 @@ BOOL	WINAPI		UninitSetWindow(HINSTANCE);
 static  VOID		xLog(int line, const char* format, ...);
 
 extern HINSTANCE	szGlobalHinstance;
-HDC			szMemDc = NULL, szPngMemDc=NULL;
+HDC			szMemDc = NULL, szPngMemDc = NULL;
 HBITMAP		szCompatibleBitmap = NULL;
-STB_IMAGE_DATA szStdClose = {0};
-STB_IMAGE_DATA szStdDonate = { 0 };
-RECT szClientRect = { 0 }, szCloseRect = { 0 }, szDonateRect = {0};
+HBRUSH szBrush[1] = { NULL };
+STB_IMAGE_DATA szStdImage[2];
+RECT szClientRect = { 0 }, szCloseRect = { 0 }, szDonateRect = { 0 }, szMenuBarRect = { 0 };
 MOUSE_POS	szMouse = { 0,0,0,0,0,0 };
 FILE *szLog = NULL;
 BOOL szShow = FALSE;
 
-int WINAPI PluginWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,PSTR szCmdLine, int iCmdShow){
+int WINAPI PluginWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow) {
 	if (!szShow) {
 		static TCHAR szAppName[] = TEXT("CleverQQPluginCardSetWindow");
 		CreateThread(NULL, 0, ThreadMsgProc, hInstance, 0, NULL);
@@ -36,11 +36,11 @@ int WINAPI PluginWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,PSTR szCmd
 	return 0;
 }
 
-DWORD WINAPI ThreadMsgProc(LPVOID lpParameter){
+DWORD WINAPI ThreadMsgProc(LPVOID lpParameter) {
 	if (InitSetWindow(szGlobalHinstance)) {
 		HWND         hWnd;
 		MSG          msg;
-		hWnd=CreateWindowEx(NULL, TEXT("CleverQQPluginCardSetWindow"), TEXT("指令"), WS_POPUP, 0, 0, WS_CLIENT_WIDTH, WS_CLIENT_HEIGHT, NULL, NULL, szGlobalHinstance, NULL);
+		hWnd = CreateWindowEx(NULL, TEXT("CleverQQPluginCardSetWindow"), TEXT("指令"), WS_POPUP, 0, 0, WS_CLIENT_WIDTH, WS_CLIENT_HEIGHT, NULL, NULL, szGlobalHinstance, NULL);
 		CenterWindow(hWnd);
 		ShowWindow(hWnd, SW_NORMAL);
 		UpdateWindow(hWnd);
@@ -53,86 +53,68 @@ DWORD WINAPI ThreadMsgProc(LPVOID lpParameter){
 	return S_OK;
 }
 
-LRESULT CALLBACK PluginWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam){
+LRESULT CALLBACK PluginWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
 	HDC         hdc;
 	PAINTSTRUCT ps;
 	LPVOID resBuff = NULL;
 	DWORD resSize = 0;
-	POINT point = {0};
+	static POINT point = { 0 };
+	static INT iRes[2] = { IDB_PNG_CLOSE ,IDB_PNG_DONATE };
+	static COLORREF cHoverColor = RGB(63, 63, 65);
 	switch (message)
 	{
 	case WM_CREATE:
 		GetClientRect(hwnd, &szClientRect);
-		szCloseRect.left = szClientRect.right-30;
-		szCloseRect.top = szClientRect.top+3;
-		szCloseRect.right = szCloseRect.left + 27;
-		szCloseRect.bottom = szCloseRect.top + 27;
-		//
-		szDonateRect.left = szClientRect.left+1;
-		szDonateRect.top = szCloseRect.bottom;
-		szDonateRect.right = szClientRect.right-1;
-		szDonateRect.bottom = szDonateRect.top + 400;
-		if ((resSize = LoadResourceFromRes(szGlobalHinstance, IDB_PNG_CLOSE, &resBuff, TEXT("PNG")))) {
-			memset(&szStdClose, 0, sizeof(STB_IMAGE_DATA));
-			szStdClose.len = resSize;
-			szStdClose.data = NULL;
-			szStdClose.channel = 4;
-			szStdClose.data = stbi_load_from_memory(
-				(stbi_uc*)resBuff,
-				resSize,
-				&szStdClose.width,
-				&szStdClose.height,
-				&szStdClose.comp,
-				szStdClose.channel
-			);
-			if (szStdClose.data != NULL) {
-				if (GetBitmapFromRes(&szStdClose) == TRUE) {
-					stbi_image_free(szStdClose.data);
+		szCloseRect.left = szClientRect.right - 33;
+		szCloseRect.top = szClientRect.top + 9;
+		szCloseRect.right = szCloseRect.left + 24;
+		szCloseRect.bottom = szCloseRect.top + 24;
+
+		szMenuBarRect.left = szClientRect.left;
+		szMenuBarRect.top = szClientRect.top;
+		szMenuBarRect.right = szClientRect.right;
+		szMenuBarRect.bottom = szClientRect.top + 42;
+
+		szDonateRect.left = szClientRect.left + 1;
+		szDonateRect.top = szMenuBarRect.bottom;
+		szDonateRect.right = szClientRect.right - 1;
+		szDonateRect.bottom = szClientRect.bottom;
+
+		szBrush[0] = CreateSolidBrush(RGB(0x60, 0x4C, 0x40));
+		for (int i = 0; i < 2; i++) {
+			if ((resSize = LoadResourceFromRes(szGlobalHinstance, iRes[i], &resBuff, TEXT("PNG")))) {
+				memset(&szStdImage[i], 0, sizeof(STB_IMAGE_DATA));
+				szStdImage[i].len = resSize;
+				szStdImage[i].data = NULL;
+				szStdImage[i].channel = 4;
+				szStdImage[i].hover = FALSE;
+				szStdImage[i].data = stbi_load_from_memory(
+					(stbi_uc*)resBuff,
+					resSize,
+					&szStdImage[i].width,
+					&szStdImage[i].height,
+					&szStdImage[i].comp,
+					szStdImage[i].channel
+				);
+				if (szStdImage[i].data != NULL) {
+					if (GetBitmapFromRes(&szStdImage[i]) == TRUE) {
+						stbi_image_free(szStdImage[i].data);
+					}
 				}
-			}
-			else {
-				LOG_TRACE("解码失败:id %d size:%d code:%d", IDB_PNG_CLOSE, resSize, GetLastError());
-			}
-			free(resBuff);
-			resBuff = NULL;
-		}
-		else {
-			LOG_TRACE("加载资源文件失败:id %d size:%d code:%d", IDB_PNG_CLOSE, resSize,GetLastError());
-		}
-		if ((resSize = LoadResourceFromRes(szGlobalHinstance, IDB_PNG_DONATE, &resBuff, TEXT("PNG")))) {
-			memset(&szStdDonate, 0, sizeof(STB_IMAGE_DATA));
-			szStdDonate.len = resSize;
-			szStdDonate.data = NULL;
-			szStdDonate.channel = 4;
-			szStdDonate.data = stbi_load_from_memory(
-				(stbi_uc*)resBuff,
-				resSize,
-				&szStdDonate.width,
-				&szStdDonate.height,
-				&szStdDonate.comp,
-				szStdDonate.channel
-			);
-			if (szStdDonate.data != NULL) {
-				if (GetBitmapFromRes(&szStdDonate) == TRUE) {
-					stbi_image_free(szStdDonate.data);
+				else {
+					LOG_TRACE("解码失败:id %d size:%d code:%d", IDB_PNG_CLOSE, resSize, GetLastError());
 				}
+				free(resBuff);
+				resBuff = NULL;
 			}
-			else {
-				LOG_TRACE("解码失败:id %d size:%d code:%d", IDB_PNG_CLOSE, resSize, GetLastError());
-			}
-			free(resBuff);
-			resBuff = NULL;
-		}
-		else {
-			LOG_TRACE("加载资源文件失败:id %d size:%d code:%d", IDB_PNG_CLOSE, resSize, GetLastError());
 		}
 		break;
 	case WM_PAINT:
-		hdc = BeginPaint(hwnd,&ps);
+		hdc = BeginPaint(hwnd, &ps);
 		SetBkMode(hdc, TRANSPARENT);
 		if (!szMemDc) {
 			szMemDc = CreateCompatibleDC(hdc);
-			szCompatibleBitmap=CreateCompatibleBitmap(hdc, szClientRect.right, szClientRect.bottom);
+			szCompatibleBitmap = CreateCompatibleBitmap(hdc, szClientRect.right, szClientRect.bottom);
 			SelectObject(szMemDc, szCompatibleBitmap);
 			SetBkMode(szMemDc, TRANSPARENT);
 		}
@@ -141,21 +123,17 @@ LRESULT CALLBACK PluginWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 			SetBkMode(szPngMemDc, TRANSPARENT);
 		}
 		//双缓冲绘图
-		//Rectangle(szMemDc, szClientRect.left, szClientRect.top, szClientRect.right, szClientRect.bottom);
+		Rectangle(szMemDc, szClientRect.left, szClientRect.top, szClientRect.right, szClientRect.bottom);
+		FillRect(szMemDc, &szMenuBarRect, szBrush[0]);
 		//绘制关闭按钮
-		if (szStdClose.hBitmap) {
-			RenderAlphaBitmap(szMemDc, szPngMemDc, szStdClose.hBitmap, &szCloseRect, 0);
-		}else {
-			LOG_TRACE("渲染关闭按钮失败，资源大小%d code:%d",szStdClose.len, GetLastError());
+		if (szStdImage[0].hBitmap) {
+			RenderAlphaBitmap(szMemDc, szPngMemDc, szStdImage[0].hBitmap, &szCloseRect, szStdImage[0].hover == TRUE ? cHoverColor : 0);
 		}
-		if (szStdDonate.hBitmap) {
-			RenderAlphaBitmap(szMemDc, szPngMemDc, szStdDonate.hBitmap, &szDonateRect, 0);
-		}
-		else {
-			LOG_TRACE("渲染关闭按钮失败，资源大小%d code:%d", szStdDonate.len, GetLastError());
+		if (szStdImage[1].hBitmap) {
+			RenderAlphaBitmap(szMemDc, szPngMemDc, szStdImage[1].hBitmap, &szDonateRect, 0);
 		}
 		BitBlt(hdc, 0, 0, WS_CLIENT_WIDTH, WS_CLIENT_HEIGHT, szMemDc, 0, 0, SRCCOPY);
-		EndPaint(hwnd,&ps);
+		EndPaint(hwnd, &ps);
 		break;
 	case WM_ERASEBKGND:
 		return FALSE;
@@ -170,8 +148,22 @@ LRESULT CALLBACK PluginWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 		}
 		break;
 	case WM_MOUSEMOVE:
+		point.x = LOWORD(lParam);
+		point.y = HIWORD(lParam);
 		if (szMouse.l_button_down) {
 			SendMessage(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+		}
+		if (PtInRect(&szCloseRect, point) == TRUE) {
+			if (!szStdImage[0].hover) {
+				szStdImage[0].hover = TRUE;
+				InvalidateRect(hwnd, &szCloseRect, TRUE);
+			}
+		}
+		else {
+			if (szStdImage[0].hover) {
+				szStdImage[0].hover = FALSE;
+				InvalidateRect(hwnd, &szCloseRect, TRUE);
+			}
 		}
 		break;
 	case WM_LBUTTONUP:
@@ -192,6 +184,13 @@ LRESULT CALLBACK PluginWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 		}
 		if (szLog != NULL) {
 			fclose(szLog);
+		}
+		//卸载画刷
+		for (int i = 0; i < 1; i++) {
+			if (szBrush[i]) {
+				DeleteObject(szBrush[i]);
+				szBrush[i] = NULL;
+			}
 		}
 		szShow = FALSE;
 		PostQuitMessage(0);
