@@ -27,7 +27,7 @@
 extern "C" {
 	dllexp char * _stdcall IR_Create();
 	dllexp int _stdcall IR_Message(char *RobotQQ, int MsgType, char *Msg, char *Cookies, char *SessionKey, char *ClientKey);
-	dllexp int _stdcall IR_AllEvent(char *RobotQQ, int MsgType, int MsgCType, char *MsgFrom, char *TigObjF, char *TigObjC, char *Msg, char *RawMsg, int pText);
+	dllexp int _stdcall IR_Event(char *RobotQQ, int MsgType, int MsgCType, char *MsgFrom, char *TigObjF, char *TigObjC, char *Msg, char *MsgNum, char *MsgID, char *RawMsg, char *JSON, int pText);
 	dllexp void _stdcall IR_SetUp();
 	dllexp int _stdcall IR_DestroyPlugin();
 }
@@ -54,8 +54,8 @@ dllexp char *  _stdcall IR_Create() {
 		"插件版本{1.0.4}\n"
 		"插件作者{mengdj}\n"
 		"插件说明{发送json或xml转换成卡片,如没有返回则代表数据有误,请自行检查}\n"
-		"插件skey{5EQ78SIBEUU7JWIA4192YDBT}"
-		"插件sdk{S2}";
+		"插件skey{8956RTEWDFG3216598WERDF3}"
+		"插件sdk{S3}";
 	return szBuffer;
 }
 
@@ -73,26 +73,33 @@ dllexp int _stdcall IR_Message(char *RobotQQ, int MsgType, char *Msg, char *Cook
 	return (MT_CONTINUE);
 }
 
-
 ///此子程序会分发IRC_机器人QQ接收到的所有：事件，消息；您可在此函数中自行调用所有参数
-dllexp int _stdcall IR_AllEvent(char *RobotQQ, int MsgType, int MsgCType, char *MsgFrom, char *TigObjF, char *TigObjC, char *Msg, char *RawMsg, int pText) {
+dllexp int _stdcall IR_Event(char *RobotQQ, int MsgType, int MsgCType, char *MsgFrom, char *TigObjF, char *TigObjC, char *Msg, char *MsgNum, char *MsgID, char *RawMsg, char *JSON, int pText) {
 	///RobotQQ		机器人QQ				多Q版用于判定哪个QQ接收到该消息
 	///MsgType		消息类型				接收到消息类型，该类型可在常量表中查询具体定义，此处仅列举： - 1 未定义事件 1 好友信息 2, 群信息 3, 讨论组信息 4, 群临时会话 5, 讨论组临时会话 6, 财付通转账
-	///MsgCType		消息子类型			此参数在不同消息类型下，有不同的定义，暂定：接收财付通转账时 1为好友 2为群临时会话 3为讨论组临时会话    有人请求入群时，不良成员这里为1
+	///MsgCType		消息子类型				此参数在不同消息类型下，有不同的定义，暂定：接收财付通转账时 1为好友 2为群临时会话 3为讨论组临时会话    有人请求入群时，不良成员这里为1
 	///MsgFrom		消息来源				此消息的来源，如：群号、讨论组ID、临时会话QQ、好友QQ等
 	///TigObjF		触发对象_主动			主动发送这条消息的QQ，踢人时为踢人管理员QQ
 	///TigObjC		触发对象_被动			被动触发的QQ，如某人被踢出群，则此参数为被踢出人QQ
 	///Msg			消息内容				常见为：对方发送的消息内容，但当IRC_消息类型为 某人申请入群，则为入群申请理由
+	///MsgNum		消息序号				此参数暂定用于消息撤回
+	///MsgID		消息ID					此参数暂定用于消息撤回
 	///RawMsg		原始信息				特殊情况下会返回JSON结构（本身返回的就是JSON）
+	///JSON			JSON					JSON格式转账解析
 	///pText		信息回传文本指针		此参数用于插件加载拒绝理由  用法：写到内存（“拒绝理由”，IRC_信息回传文本指针_Out）
 
-	//char tenpay[512];
-	//当IRC_消息类型为接收到财付通消息时候，IRC_消息内容将以：#换行符分割，1：金额；2：留言；3：单号；无留言时：1：金额；2：单号
+	///char tenpay[512];
+	///当IRC_消息类型为接收到财付通消息时候，IRC_消息内容将以：#换行符分割，1：金额；2：留言；3：单号；无留言时：1：金额；2：单号
 
 	///版权声明：此SDK是应{续写}邀请为IRQQ\CleverQQ编写，请合理使用无用于黄赌毒相关方面。
 	///作者QQ：1276986643,铃兰
 	///如果您对CleverQQ感兴趣，欢迎加入QQ群：476715371，进行讨论
-	///最后修改时间：2017年7月22日10:49:15
+	//最后修改时间：2019年6月2日23:50:46
+	//CleverQQ C/C++SDK更新日志：
+	//1、修改SDK版本为S3
+	//2、新增设置窗口SDK
+	//3、新增若干api与e语言SDK已同步，请自行查看
+
 	if (MsgType == MT_FRIEND || MsgType == MT_GROUP) {
 		const char *pCommand = "我要转卡片=";
 		const char *pMoreMsgMarket = "m_resid=\"";
@@ -120,6 +127,7 @@ dllexp int _stdcall IR_AllEvent(char *RobotQQ, int MsgType, int MsgCType, char *
 					CURL_PROCESS_VAL cpv = { 0 };
 					sprintf_s(cUrl, "http://api.funtao8.com/msg.php?m_resid=%s", res_id);
 					pOutPutLog(cUrl);
+					//AGENCY
 					if (
 						(curl_code = curl_easy_setopt(curl, CURLOPT_URL, cUrl)) == CURLE_OK &&
 						(curl_code = curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36")) == CURLE_OK &&
@@ -133,8 +141,8 @@ dllexp int _stdcall IR_AllEvent(char *RobotQQ, int MsgType, int MsgCType, char *
 									//编码转换 UTF-8=》UNICODE
 									wchar_t *pwBody = NULL;
 									if ((pwBody = UTF8ToUnicode((char*)cpv.buffer)) != NULL) {
-										//4KB
-										char puBody[4096] = { 0 };
+										//8KB
+										char puBody[8192] = { 0 };
 										if ((i = WChar2Char(pwBody, puBody))) {
 											char* pTmpBody = puBody;
 											pTmpBody += strlen(pCommand);

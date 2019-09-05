@@ -82,6 +82,25 @@ extern "C" {
 	///</summary>
 	///<param name="RobotQQ">机器人QQ</param>
 	typedef LPCSTR(WINAPI * Api_GetDisGroupList)(LPCSTR RobotQQ);
+
+	///<summary>
+	///取出讨论组成员列表（返回格式为 换行符分割开的）
+	///<summary>
+	///<param name="RobotQQ">机器人QQ</param>
+	///<param name="DisGroupID">讨论组ID</param>
+	typedef LPCSTR(WINAPI * Api_GetDisGroupMemberList)(LPCSTR RobotQQ, LPCSTR DisGroupID);
+	//以上新增一个API
+
+	///<summary>
+	///取出讨论组名字
+	///</summary>
+	///<param name="RobotQQ">机器人QQ</param>
+	///<param name="DisGroupID">讨论组ID</param>
+	typedef LPCSTR(WINAPI * Api_GetDisGroupName)(LPCSTR RobotQQ, LPCSTR DisGroupID);
+	//以上新增一个API
+
+
+
 	///<summary>
 	///取邮箱，当对象QQ不为10000@qq.com时，可用于获取正确邮箱
 	///</summary>
@@ -93,6 +112,15 @@ extern "C" {
 	///</summary>
 	///<param name="RobotQQ">机器人QQ</param>
 	typedef LPCSTR(WINAPI * Api_GetFriendList)(LPCSTR RobotQQ);
+
+	///<summary>
+	///取得好友列表，返回内容#换行符分割
+	///</summary>
+	///<param name="RobotQQ">机器人QQ</param>
+	typedef LPCSTR(WINAPI * Api_GetFriendList_B)(LPCSTR RobotQQ);
+	//以上新增一个API
+
+
 	///<summary>
 	///取对象性别 1男 2女 未知或失败返回-1
 	///</summary>
@@ -111,12 +139,20 @@ extern "C" {
 	///<param name="RobotQQ">机器人QQ</param>
 	///<param name="GroupNum">群号</param>
 	///<param name="ObjQQ">欲取得群名片的QQ号码</param>
-	typedef LPCSTR (WINAPI * Api_GetGroupCard)(LPCSTR RobotQQ, LPCSTR GroupNum, LPCSTR ObjQQ);
+	typedef LPCSTR(WINAPI * Api_GetGroupCard)(LPCSTR RobotQQ, LPCSTR GroupNum, LPCSTR ObjQQ);
 	///<summary>
 	///取得群列表，返回获取到的原始JSON格式信息，需自行解析
 	///</summary>
 	///<param name="RobotQQ">机器人QQ</param>
 	typedef LPCSTR(WINAPI * Api_GetGroupList)(LPCSTR RobotQQ);
+
+	///<summary>
+	///取得群列表，#换行符分割 不受最高获取500群限制（如需获取群名称请对应调用 Api_GetGroupName 理论群名获取不会频繁）
+	///<summary>
+	///<param name="RobotQQ">机器人QQ</param>
+	typedef LPCSTR(WINAPI * Api_GetGroupList_A)(LPCSTR RobotQQ);
+	//以上新增一个API
+
 	///<summary>
 	///取得群成员列表，返回获取到的原始JSON格式信息，需自行解析
 	///</summary>
@@ -186,6 +222,15 @@ extern "C" {
 	///取框架在线QQ号（多Q版可用）
 	///</summary>
 	typedef LPCSTR(WINAPI * Api_GetOnLineList)();
+
+	///<summary>
+	///查询对象在线状态   返回 1、在线 2、Q我 3、离开 4、忙碌 5、勿扰 6、隐身或离线（Pro可用）
+	///</summary>
+	///<param name="RobotQQ">机器人QQ</param>
+	///<paran name="ObjQQ">对象QQ</param>
+	typedef int(WINAPI * Api_GetOnlineState)(LPCSTR RobotQQ, LPCSTR ObjQQ);
+	//以上新增一个API
+
 	///<summary>
 	///取个人说明
 	///</summary>
@@ -200,6 +245,14 @@ extern "C" {
 	///<param name="ReferenceObj">参考对象</param>
 	///<param name="PicGUID">图片GUID</param>
 	typedef LPCSTR(WINAPI * Api_GetPicLink)(LPCSTR RobotQQ, INT PicType, LPCSTR ReferenceObj, LPCSTR PicGUID);
+
+	///<summary>
+	///取得企点QQ外部联系人好友列表  成功返回Json列表 失败返回空或理由
+	///</summary>
+	///<param name="RobotQQ">机器人QQ</param>
+	typedef LPCSTR(WINAPI * Api_GetQidianQQFriendsList)(LPCSTR RobotQQ);
+	//以上新增一个API
+
 	///<summary>
 	///取Q龄，成功返回Q龄，失败返回-1
 	///</summary>
@@ -215,6 +268,15 @@ extern "C" {
 	///</summary>
 	///<param name="RobotQQ">响应的QQ</param>
 	typedef LPCSTR(WINAPI * Api_GetRInf)(LPCSTR RobotQQ);
+
+	///<summary>
+	///获取机器人QQ是否被屏蔽消息发送状态（真屏蔽 假未屏蔽）
+	///</summary>
+	///<param name="RobotQQ">机器人QQ</param>
+	///<param name="MsgType">0在线临时会话 1好友 2群 3讨论组 4群临时会话 5讨论组临时会话 7好友验证回复会话</param>
+	typedef BOOL(WINAPI * Api_GetShieldedState)(LPCSTR RobotQQ, int MsgType);
+	//以上新增一个API
+
 	///<summary>
 	///取个性签名
 	///</summary>
@@ -244,8 +306,19 @@ extern "C" {
 	///</summary>
 	///<param name="GroupNum">群号</param>
 	typedef LPCSTR(WINAPI * Api_GNTransGID)(LPCSTR GroupNum);
+
 	///<summary>
-	///处理框架所有事件请求
+	///某人请求添加好友验证处理
+	///</summary>
+	///<param name="RobotQQ">机器人QQ</param>
+	///<param name="ObjQQ">请求添加好友人QQ</param>
+	///<param name="Handling">10同意，20拒绝，30忽略</param>
+	///<param name="AdditionalInfo">拒绝添加好友附加信息</param>
+	typedef void (WINAPI * Api_HandleFriendEvent)(LPCSTR RobotQQ, LPCSTR ObjQQ, int Handing, LPCSTR AdditionalInfo);
+	//以上新增一个API
+
+	///<summary>
+	///已逐步启用，不建议使用！处理框架所有事件请求
 	///</summary>
 	///<param name="RobotQQ">机器人QQ</param>
 	///<param name="ReQuestType">请求类型：213请求入群，214我被邀请加入某群，215某人被邀请加入群，101某人请求添加好友</param>
@@ -345,7 +418,7 @@ extern "C" {
 	///<param name="Text">作业内容</param>
 	typedef LPCSTR(WINAPI * Api_PBHomeWork)(LPCSTR RobotQQ, LPCSTR GroupNum, LPCSTR HomeWorkName, LPCSTR HomeWorkTitle, LPCSTR Text);
 	///<summary>
-	///发送QQ说说
+	///已弃用！！！发送QQ说说
 	///</summary>
 	///<param name="RobotQQ">响应的QQ</param>
 	///<param name="Text">发送内容</param>
@@ -511,10 +584,188 @@ extern "C" {
 	///<param name="RobotQQ">机器人QQ</param>
 	///<param name="ObjQQ">被赞人QQ</param>
 	typedef LPCSTR(WINAPI * Api_UpVote)(LPCSTR RobotQQ, LPCSTR ObjQQ);
+
+
+	///以下更新内容 2018-09-10
+
 	///<summary>
-	///添加好友</param>
+	///处理群验证事件
 	///</summary>
-	///<param name="RobotQQ">目标QQ</param>
-	///<param name="ObjQQ">机器人QQ</param>
-	typedef BOOL(WINAPI * Api_AddFriend)(LPCSTR RobotQQ,LPCSTR ObjQQ,LPCSTR ObjMsg);
+	///<param name="RobotQQ">响应的QQ</param>
+	///<param name="type">请求类型：213请求入群  214我被邀请加入某群  215某人被邀请加入群  101某人请求添加好友</param>
+	///<param name="ObjQQ">对象QQ：申请入群 被邀请人 请求添加好友人的QQ （当请求类型为214时这里为邀请人QQ）</param>
+	///<param name="GroupNum">收到请求群号（好友添加时这里为空）</param>
+	///<param name="seq">需要处理事件的seq</param>	
+	///<param name="Handling">处理方式：10同意 20拒绝 30忽略</param>
+	///<param name="AdditionalInfo">附加信息：拒绝入群附加信息</param>
+	typedef void (WINAPI * Api_HandleGroupEvent)(LPCSTR RobotQQ, int type, LPCSTR ObjQQ, LPCSTR GroupNum, LPCSTR seq, int Handling, LPCSTR AdditionalInfo);
+
+	///<summary>
+	///修改讨论组名
+	///</summary>
+	///<param name="RobotQQ">机器人QQ</param>
+	///<param name="DisGroupID">讨论组ID</param>
+	///<param name="NewName">新名字</param>
+	typedef void (WINAPI * Api_SetDisGroupName)(LPCSTR RobotQQ, LPCSTR DisGroupID, LPCSTR NewName);
+
+	///<summary>
+	///通过语音GUID获取下载链接，失败返回空
+	///</summary>
+	///<param name="RobotQQ">机器人QQ</param>
+	///<param name="VoiGUID">语音GUID</param>
+	typedef	LPCSTR(WINAPI * Api_GetVoiLink)(LPCSTR RobotQQ, LPCSTR VoiGUID);
+
+	///<summary>
+	///查询对方是否允许在线状态临时会话消息（非讨论组和群临时）（Pro版可用）
+	///</summary>
+	///<param name="RobotQQ">机器人QQ</param>
+	///<param name="ObjQQ">对象QQ</param>
+	typedef BOOL(WINAPI * Api_GetWpa)(LPCSTR RobotQQ, LPCSTR ObjQQ);
+	//以上新增一个API
+
+
+	///<summary>
+	///删除框架账号列表指定QQ Pro可用
+	///</sumary>
+	///<param name="QQ">欲删除的QQ账号</param>
+	typedef LPCSTR(WINAPI * Api_DelQQ)(LPCSTR QQ);
+
+	///<summary>
+	///已弃用！获取机器人QQ是否被屏蔽群消息状态 Pro可用
+	///</summary>
+	///<param name="RobotQQ">机器人QQ</param>
+	typedef bool(WINAPI * Api_IfShielded)(LPCSTR RobotQQ);
+
+	///<summary>
+	///消息撤回，成功返回空，失败返回腾讯给出的理由，Pro可用
+	///必须保证插件版本是S3，否则无法找到参数
+	///</summary>
+	///<param name="RobotQQ>机器人QQ</param>
+	///<param name="GroupNum">群号</param>
+	///<param name="MsgNum">消息序号</param>
+	///<param name="MsgID">消息ID</param>
+	typedef LPCSTR(WINAPI * Api_WithdrawMsg)(LPCSTR RobotQQ, LPCSTR GroupNum, LPCSTR MsgNum, LPCSTR MsgID);
+
+	///<summary>
+	///置正在输入状态，发送消息后会打断状态
+	///</summary>
+	///<param name="RobotQQ">机器人QQ</param>
+	///<param name="ObjQQ">接收QQ</param>
+	typedef void(WINAPI * Api_BeInput)(LPCSTR RobotQQ, LPCSTR ObjQQ);
+
+	///<summary>
+	///取对象好友添加验证方式（00 允许任何人  01 需要身份验证  03 需回答正确问题  04 需回答问题  99 已经是好友） （Pro版可用）
+	///</summary>
+	///<param name="RobotQQ">机器人QQ</param>
+	///<param name="ObjQQ">QQ</param>
+	typedef LPCSTR(WINAPI * Api_GetQQAddMode)(LPCSTR RobotQQ, LPCSTR ObjQQ);
+
+	///<summary>
+	///查询对象是否在线
+	///</summary>
+	///<param name="RobotQQ">机器人QQ</param>
+	///<param name="ObjQQ">QQ</param>
+	typedef bool(WINAPI * Api_IsOnline)(LPCSTR RobotQQ, LPCSTR ObjQQ);
+
+	///<summary>
+	///查询对象群当前人数和上限人数 pro可用
+	///</summary>
+	///<param name="RobotQQ">机器人QQ</param>
+	///<param name="GroupNum">群号</param>
+	typedef LPCSTR(WINAPI * Api_GetGroupMemberNum)(LPCSTR RobotQQ, LPCSTR GroupNum);
+
+
+	///<summary>
+	///查询对象群验证方式 1允许任何人 2需要验证消息 3不允许任何人加群 4需要正确回答问题 5需要回答问题并由管理员审核 6付费群 -1群号不存在（获取失败返回空）Pro版可用
+	///</summary>
+	///<param name="RobotQQ">机器人QQ</param>
+	///<param name="GroupNum">群号</param>
+	typedef LPCSTR(WINAPI * Api_GetGroupAddMode)(LPCSTR RobotQQ, LPCSTR GroupNum);
+
+	///<summary>
+	///查询QQ群等级，成功返回等级，失败返回-1 pro可用
+	///</summary>
+	///<param name="RobotQQ">机器人QQ</param>
+	///<param name="GroupNum">群号</param>
+	typedef int(WINAPI * Api_GetGroupLv)(LPCSTR RobotQQ, LPCSTR GroupNum);
+
+	///<summary>
+	///修改好友备注姓名
+	///</summary>
+	///<param name="RobotQQ">机器人QQ</param>
+	///<param name="ObjQQ">要修改的人的QQ</param>
+	///<param name="NewName">新名字</param>
+	typedef void(WINAPI * Api_SetFriendsRemark)(LPCSTR RobotQQ, LPCSTR ObjQQ, LPCSTR NewName);
+
+	///<summary>
+	///取好友备注名
+	///</summary>
+	///<param name="RobotQQ">机器人QQ</param>
+	///<param name="ObjQQ">QQ</param>
+	typedef LPCSTR(WINAPI * Api_GetFriendsRemark)(LPCSTR RobotQQ, LPCSTR ObjQQ);
+
+	///<summary>
+	///抽取群礼物,需要群聊等级LV5可用，pro可用
+	///</summary>
+	///<param name="RobotQQ">机器人QQ</param>
+	typedef LPCSTR(WINAPI * Api_TakeGift)(LPCSTR RobotQQ);
+
+	///<summary>
+	///查询我的群礼物，返回json格式，pro可用
+	///</summary>
+	///<param name="RobotQQ">机器人QQ</param>
+	typedef LPCSTR(WINAPI * Api_CheckGift)(LPCSTR RobotQQ);
+
+	///<summary>
+	///送群礼物,成功返回1，失败返回-1，pro可用
+	///</summary>
+	///<param name="RobotQQ>机器人QQ</param>
+	///<param name="GroupNum">群号</param>
+	///<param name="ObjQQ">赠送对象QQ</param>
+	///<param name="pid">礼物pid</param>
+	typedef int(WINAPI * Api_GiveGift)(LPCSTR RobotQQ, LPCSTR GroupNum, LPCSTR ObjQQ, LPCSTR pid);
+
+	///<summary>
+	///查询对象或自身群聊等级，返回实际等级，失败返回-1，Pro可用
+	///</summary>
+	///<param name="RobotQQ>机器人QQ</param>
+	///<param name="GroupNum">群号</param>
+	///<param name="ObjQQ">对象QQ</param>
+	typedef int(WINAPI * Api_GetGroupChatLv)(LPCSTR RobotQQ, LPCSTR GroupNum, LPCSTR ObjQQ);
+
+	///<summary>
+	///查询对象或自身QQ达人天数，返回实际等级，失败返回-1，Pro可用
+	///</summary>
+	///<param name="RobotQQ>机器人QQ</param>
+	///<param name="ObjQQ">对象QQ</param>
+	typedef int(WINAPI * Api_GetExpertDays)(LPCSTR RobotQQ, LPCSTR ObjQQ);
+
+	///<summary>
+	///取群列表B接口，返回JSON自行解析
+	///</summary>
+	///<param name="RobotQQ">机器人QQ</param>
+	typedef LPCSTR(WINAPI * Api_GetGroupList_B)(LPCSTR RobotQQ);
+
+	///<summary>
+	///取群成员列表B接口，返回QQ和身份JSON，失败返回空
+	///<summary>
+	///<param name="RobotQQ">机器人QQ</param>
+	///<param name="GroupMum">群号</param>
+	typedef LPCSTR(WINAPI * Api_GetGroupMemberList_B)(LPCSTR RobotQQ, LPCSTR GroupNum);
+
+
+	///<summary>
+	///取得群成员列表，返回获取到的原始JSON格式信息，需自行解析（有群员昵称）
+	///</summary>
+	///<param name="RobotQQ">机器人QQ</param>
+	///<param name="GroupNum">群号</param>
+	typedef LPCSTR(WINAPI * Api_GetGroupMemberList_C)(LPCSTR RobotQQ, LPCSTR GroupNum);
+	//以上新增一个API
+
+	///<summary>
+	///已失效！！！取得群成员在线列表，返回QQ列表，换行分割
+	///</summary>
+	///<param name="RobotQQ">机器人QQ</param>
+	///<param name="GroupMum">群号</param>
+	typedef LPCSTR(WINAPI * Api_GetOnlineGroupMBR)(LPCSTR RobotQQ, LPCSTR GroupNum);
 }
