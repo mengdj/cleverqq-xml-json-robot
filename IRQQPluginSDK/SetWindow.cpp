@@ -1,5 +1,17 @@
 #define WINVER 0x0500
 #include <windows.h>
+#if defined _M_IX86
+#pragma comment(linker,"/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='x86' publicKeyToken='6595b64144ccf1df' language='*'\"")
+#elif defined _M_IA64
+#pragma comment(linker,"/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='ia64' publicKeyToken='6595b64144ccf1df' language='*'\"")
+#elif defined _M_X64
+#pragma comment(linker,"/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='amd64' publicKeyToken='6595b64144ccf1df' language='*'\"")
+#else
+#pragma comment(linker,"/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
+#endif
+#include <commctrl.h>
+#pragma comment(lib,"comctl32.lib")
+
 #include "util.h"
 #ifndef STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
@@ -8,25 +20,30 @@
 #include "resource.h"
 #include <time.h>
 #define WS_CLIENT_WIDTH		302
-#define WS_CLIENT_HEIGHT	460
+#define WS_CLIENT_HEIGHT	504
 #define LOG_TRACE(...)					xLog(__LINE__, __VA_ARGS__)
-
-LRESULT CALLBACK	PluginWndProc(HWND, UINT, WPARAM, LPARAM);
-DWORD	WINAPI		ThreadMsgProc(LPVOID lpParameter);
-ATOM	WINAPI		InitSetWindow(HINSTANCE);
-BOOL	WINAPI		UninitSetWindow(HINSTANCE);
-static  VOID		xLog(int line, const char* format, ...);
 
 extern HINSTANCE	szGlobalHinstance;
 HDC			szMemDc = NULL, szPngMemDc = NULL;
 HBITMAP		szCompatibleBitmap = NULL;
 HBRUSH szBrush[1] = { NULL };
-HFONT szFont[1] = {NULL};
-STB_IMAGE_DATA szStdImage[2];
-RECT szClientRect = { 0 }, szCloseRect = { 0 }, szDonateRect = { 0 }, szMenuBarRect = { 0 };
+HFONT szFont[1] = { NULL };
+HWND szHwnd[1] = { NULL };
+STB_IMAGE_DATA szStdImage[3];
+RECT szClientRect = { 0 }, szCloseRect = { 0 }, szDiyRect = { 0 }, szDonateRect = { 0 }, szMenuBarRect = { 0 };
 MOUSE_POS	szMouse = { 0,0,0,0,0,0 };
 FILE *szLog = NULL;
 BOOL szShow = FALSE;
+typedef BOOL(*ProcessEvent)(INT, LPVOID);
+ProcessEvent szEvent = NULL;
+
+LRESULT CALLBACK	PluginWndProc(HWND, UINT, WPARAM, LPARAM);
+DWORD	WINAPI		ThreadMsgProc(LPVOID lpParameter);
+ATOM	WINAPI		InitSetWindow(HINSTANCE);
+BOOL	WINAPI		UninitSetWindow(HINSTANCE);
+VOID				UpdateTooltipEx(HWND, HWND, LPRECT, WCHAR*);
+BOOL	WINAPI		RegisterEventProcess(ProcessEvent e);
+VOID				xLog(int line, const char* format, ...);
 
 int WINAPI PluginWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow) {
 	if (!szShow) {
@@ -41,7 +58,7 @@ DWORD WINAPI ThreadMsgProc(LPVOID lpParameter) {
 	if (InitSetWindow(szGlobalHinstance)) {
 		HWND         hWnd;
 		MSG          msg;
-		hWnd = CreateWindowEx(NULL, TEXT("CleverQQPluginCardSetWindow"), TEXT("指令"), WS_POPUP, 0, 0, WS_CLIENT_WIDTH, WS_CLIENT_HEIGHT, NULL, NULL, szGlobalHinstance, NULL);
+		hWnd = CreateWindowEx(NULL, TEXT("CleverQQPluginCardSetWindow"), TEXT("QQ卡片机"), WS_POPUP, 0, 0, WS_CLIENT_WIDTH, WS_CLIENT_HEIGHT, NULL, NULL, szGlobalHinstance, NULL);
 		CenterWindow(hWnd);
 		ShowWindow(hWnd, SW_NORMAL);
 		UpdateWindow(hWnd);
@@ -60,10 +77,10 @@ LRESULT CALLBACK PluginWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 	LPVOID resBuff = NULL;
 	DWORD resSize = 0;
 	static POINT point = { 0 };
-	static INT iRes[2] = { IDB_PNG_CLOSE ,IDB_PNG_DONATE };
+	static INT iRes[3] = { IDB_PNG_CLOSE ,IDB_PNG_DONATE,IDB_PNG_GROUP };
 	static COLORREF cHoverColor = RGB(0xC0, 0xC0, 0xC0);
 	static WCHAR *wAppTitle = TEXT("QQ卡片机");
-	static SIZE appTitleSize = {0};
+	static SIZE appTitleSize = { 0 };
 	switch (message)
 	{
 	case WM_CREATE:
@@ -73,6 +90,11 @@ LRESULT CALLBACK PluginWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 		szCloseRect.right = szCloseRect.left + 24;
 		szCloseRect.bottom = szCloseRect.top + 24;
 
+		szDiyRect.left = szCloseRect.left - 24;
+		szDiyRect.top = szCloseRect.top;
+		szDiyRect.right = szCloseRect.left;
+		szDiyRect.bottom = szCloseRect.bottom;
+
 		szMenuBarRect.left = szClientRect.left;
 		szMenuBarRect.top = szClientRect.top;
 		szMenuBarRect.right = szClientRect.right;
@@ -81,7 +103,7 @@ LRESULT CALLBACK PluginWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 		szDonateRect.left = szClientRect.left + 1;
 		szDonateRect.top = szMenuBarRect.bottom;
 		szDonateRect.right = szClientRect.right - 1;
-		szDonateRect.bottom = szClientRect.bottom;
+		szDonateRect.bottom = szClientRect.bottom-1;
 
 		szBrush[0] = CreateSolidBrush(RGB(0x60, 0x4C, 0x40));
 		szFont[0] = CreateFont(
@@ -90,7 +112,21 @@ LRESULT CALLBACK PluginWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 			GB2312_CHARSET, OUT_CHARACTER_PRECIS, CLIP_CHARACTER_PRECIS, DEFAULT_QUALITY,
 			FF_MODERN, TEXT("方正细黑一简体")
 		);
-		for (int i = 0; i < 2; i++) {
+		szHwnd[0] = CreateWindowEx(
+			NULL,
+			TOOLTIPS_CLASS,
+			NULL,
+			WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP,
+			CW_USEDEFAULT,
+			CW_USEDEFAULT,
+			CW_USEDEFAULT,
+			CW_USEDEFAULT,
+			hwnd,
+			NULL,
+			szGlobalHinstance,
+			NULL
+		);
+		for (int i = 0; i < 3; i++) {
 			if ((resSize = LoadResourceFromRes(szGlobalHinstance, iRes[i], &resBuff, TEXT("PNG")))) {
 				memset(&szStdImage[i], 0, sizeof(STB_IMAGE_DATA));
 				szStdImage[i].len = resSize;
@@ -149,6 +185,9 @@ LRESULT CALLBACK PluginWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 		if (szStdImage[1].hBitmap) {
 			RenderAlphaBitmap(szMemDc, szPngMemDc, szStdImage[1].hBitmap, &szDonateRect, 0);
 		}
+		if (szStdImage[2].hBitmap) {
+			RenderAlphaBitmap(szMemDc, szPngMemDc, szStdImage[2].hBitmap, &szDiyRect, szStdImage[2].hover == TRUE ? cHoverColor : 0);
+		}
 		BitBlt(hdc, 0, 0, WS_CLIENT_WIDTH, WS_CLIENT_HEIGHT, szMemDc, 0, 0, SRCCOPY);
 		EndPaint(hwnd, &ps);
 		break;
@@ -162,6 +201,8 @@ LRESULT CALLBACK PluginWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 		szMouse.l_button_down = TRUE;
 		if (PtInRect(&szCloseRect, point) == TRUE) {
 			PostMessage(hwnd, WM_CLOSE, (WPARAM)NULL, (LPARAM)NULL);
+		} else if (PtInRect(&szDiyRect, point) == TRUE&&szEvent) {
+			return szEvent(IDB_PNG_GROUP, NULL);
 		}
 		break;
 	case WM_MOUSEMOVE:
@@ -170,8 +211,10 @@ LRESULT CALLBACK PluginWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 		if (szMouse.l_button_down) {
 			SendMessage(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
 		}
+		//close
 		if (PtInRect(&szCloseRect, point) == TRUE) {
 			if (!szStdImage[0].hover) {
+				UpdateTooltipEx(szHwnd[0], hwnd, &szCloseRect, TEXT("关闭"));
 				szStdImage[0].hover = TRUE;
 				InvalidateRect(hwnd, &szCloseRect, TRUE);
 			}
@@ -180,6 +223,20 @@ LRESULT CALLBACK PluginWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 			if (szStdImage[0].hover) {
 				szStdImage[0].hover = FALSE;
 				InvalidateRect(hwnd, &szCloseRect, TRUE);
+			}
+		}
+		//diy
+		if (PtInRect(&szDiyRect, point) == TRUE) {
+			if (!szStdImage[2].hover) {
+				UpdateTooltipEx(szHwnd[0], hwnd, &szDiyRect, TEXT("加群或Q1824854886定制插件"));
+				szStdImage[2].hover = TRUE;
+				InvalidateRect(hwnd, &szDiyRect, TRUE);
+			}
+		}
+		else {
+			if (szStdImage[2].hover) {
+				szStdImage[2].hover = FALSE;
+				InvalidateRect(hwnd, &szDiyRect, TRUE);
 			}
 		}
 		break;
@@ -202,6 +259,11 @@ LRESULT CALLBACK PluginWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 		if (szLog != NULL) {
 			fclose(szLog);
 		}
+		for (int i = 0; i < 3; i++) {
+			if (szStdImage[i].hBitmap != NULL) {
+				DeleteObject(szStdImage[i].hBitmap);
+			}
+		}
 		//卸载画刷
 		for (int i = 0; i < 1; i++) {
 			if (szBrush[i]) {
@@ -216,7 +278,12 @@ LRESULT CALLBACK PluginWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 				szFont[i] = NULL;
 			}
 		}
+		if (szHwnd[0]) {
+			DestroyWindow(szHwnd[0]);
+			szHwnd[0] = NULL;
+		}
 		szShow = FALSE;
+		szEvent = NULL;
 		PostQuitMessage(0);
 		return 0;
 	}
@@ -239,12 +306,54 @@ ATOM WINAPI InitSetWindow(HINSTANCE hInstance) {
 	return RegisterClassEx(&wcex);
 }
 
+BOOL	WINAPI		RegisterEventProcess(ProcessEvent e) {
+	if (e) {
+		szEvent = e;
+		return TRUE;
+	}
+	return FALSE;
+}
+
 BOOL WINAPI UninitSetWindow(HINSTANCE hInstance) {
 	return UnregisterClass(TEXT("CleverQQPluginCardSetWindow"), hInstance);
 }
 
+VOID UpdateTooltipEx(HWND hWndTool, HWND hWndOwner, LPRECT lPRect, WCHAR * wTip) {
+	static RECT prevRect = { 0 };
+	static BOOL	bFirstEnter = TRUE;
+	if (lPRect && wTip) {
+		if (bFirstEnter) {
+			TOOLINFO tti = { 0 };
+			memset(&tti, 0, sizeof(TOOLINFO));
+			tti.cbSize = sizeof(TOOLINFO);
+			tti.uFlags = TTF_SUBCLASS;
+			tti.hwnd = hWndOwner;
+			tti.rect = *lPRect;
+			tti.uId = 1;
+			tti.lpszText = wTip;
+			SendMessage(hWndTool, TTM_ADDTOOL, 0, (LPARAM)& tti);
+			CopyRect(&prevRect, lPRect);
+			bFirstEnter = FALSE;
+		}
+		else {
+			if (!EqualRect(&prevRect, lPRect)) {
+				TOOLINFO tti = { 0 };
+				memset(&tti, 0, sizeof(TOOLINFO));
+				tti.cbSize = sizeof(TOOLINFO);
+				tti.uFlags = TTF_SUBCLASS;
+				tti.hwnd = hWndOwner;
+				tti.rect = *lPRect;
+				tti.uId = 1;
+				tti.lpszText = wTip;
+				SendMessage(hWndTool, TTM_SETTOOLINFO, 0, (LPARAM)& tti);
+				CopyRect(&prevRect, lPRect);
+			}
+		}
+	}
+}
+
 //日志
-static VOID xLog(int line, const char* format, ...) {
+VOID xLog(int line, const char* format, ...) {
 	if (szLog == NULL) {
 		fopen_s(&szLog, "debug.log", "w+");
 	}

@@ -124,6 +124,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;IRQQPLUGINSDK_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -155,6 +156,7 @@
   <ItemGroup>
     <ClInclude Include="constant.h" />
     <ClInclude Include="dll.h" />
+    <ClInclude Include="iconv.h" />
     <ClInclude Include="IRQQ_API.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="stb_image.h" />
@@ -173,7 +175,9 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\close_normal.png" />
+    <Image Include="res\diy_normal.png" />
     <Image Include="res\donate.png" />
+    <Image Include="res\group_normal.png" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

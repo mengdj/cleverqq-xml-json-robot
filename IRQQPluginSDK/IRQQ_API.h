@@ -87,7 +87,7 @@ Api_UninstallPlugin pUninstallPlugin = NULL;
 Api_UpLoadPic pUpLoadPic = NULL;
 Api_UpLoadVoice pUpLoadVoice = NULL;
 Api_UpVote pUpVote = NULL;
-
+Api_AddFriend pAddFriend = NULL;
 void CreateDllProc()
 {
 	HINSTANCE hDllInst = LoadLibrary(L"IRapi.dll");
@@ -175,6 +175,7 @@ void CreateDllProc()
 		pUpLoadPic = (Api_UpLoadPic)GetProcAddress(hDllInst, "Api_UpLoadPic");
 		pUpLoadVoice = (Api_UpLoadVoice)GetProcAddress(hDllInst, "Api_UpLoadVoice");
 		pUpVote = (Api_UpVote)GetProcAddress(hDllInst, "Api_UpVote");
+		pAddFriend= (Api_AddFriend)GetProcAddress(hDllInst, "Api_AddFriend");
 		FreeLibrary(hDllInst);
 	}
 	return;

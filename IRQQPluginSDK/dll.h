@@ -511,4 +511,10 @@ extern "C" {
 	///<param name="RobotQQ">机器人QQ</param>
 	///<param name="ObjQQ">被赞人QQ</param>
 	typedef LPCSTR(WINAPI * Api_UpVote)(LPCSTR RobotQQ, LPCSTR ObjQQ);
+	///<summary>
+	///添加好友</param>
+	///</summary>
+	///<param name="RobotQQ">目标QQ</param>
+	///<param name="ObjQQ">机器人QQ</param>
+	typedef BOOL(WINAPI * Api_AddFriend)(LPCSTR RobotQQ,LPCSTR ObjQQ,LPCSTR ObjMsg);
 }

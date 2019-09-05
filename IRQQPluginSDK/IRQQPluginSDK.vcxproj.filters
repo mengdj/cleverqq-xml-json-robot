@@ -33,6 +33,9 @@
     <ClInclude Include="stb_image.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="iconv.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp">
@@ -60,6 +63,12 @@
       <Filter>资源文件</Filter>
     </Image>
     <Image Include="res\close_normal.png">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="res\diy_normal.png">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="res\group_normal.png">
       <Filter>资源文件</Filter>
     </Image>
   </ItemGroup>
