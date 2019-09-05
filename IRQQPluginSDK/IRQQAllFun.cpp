@@ -22,6 +22,7 @@
 #define dllexp __declspec(dllexport)
 #endif  
 #define CURL_MAX_BUFFER_SIZE			524288
+#define SEND_TYPE						1
 
 extern "C" {
 	dllexp char * _stdcall IR_Create();
@@ -92,94 +93,94 @@ dllexp int _stdcall IR_AllEvent(char *RobotQQ, int MsgType, int MsgCType, char *
 	///作者QQ：1276986643,铃兰
 	///如果您对CleverQQ感兴趣，欢迎加入QQ群：476715371，进行讨论
 	///最后修改时间：2017年7月22日10:49:15
-	const char *pCommand = "我要转卡片=";
-	const char *pMoreMsgMarket = "m_resid=\"";
-	if (strstr(Msg, pCommand)) {
-		const char *pMoreMsg = strstr(Msg, pMoreMsgMarket);
-		if (pMoreMsg) {
-			//观察数据长度为64位，预留1倍128
-			char res_id[128] = { 0 };
-			int i = 0;
-			pMoreMsg += strlen(pMoreMsgMarket);
-			while (pMoreMsg != NULL&&i < 128) {
-				//0x22=" ASCII
-				if (*pMoreMsg == 0x22) {
-					break;
+	if (MsgType == MT_FRIEND || MsgType == MT_GROUP) {
+		const char *pCommand = "我要转卡片=";
+		const char *pMoreMsgMarket = "m_resid=\"";
+		if (strstr(Msg, pCommand)) {
+			const char *pMoreMsg = strstr(Msg, pMoreMsgMarket);
+			if (pMoreMsg) {
+				//观察数据长度为64位，预留1倍128
+				char res_id[128] = { 0 };
+				int i = 0;
+				pMoreMsg += strlen(pMoreMsgMarket);
+				while (pMoreMsg != NULL&&i < 128) {
+					//0x22=" ASCII
+					if (*pMoreMsg == 0x22) {
+						break;
+					}
+					res_id[i] = *pMoreMsg;
+					++i;
+					++pMoreMsg;
 				}
-				res_id[i] = *pMoreMsg;
-				++i;
-				++pMoreMsg;
-			}
-			CURLcode curl_code = CURL_LAST;
-			CURL *curl = curl_easy_init();
-			if (curl) {
-				char cUrl[1024] = { 0 };
-				//第三方API解析长消息
-				CURL_PROCESS_VAL cpv = { 0 };
-				sprintf_s(cUrl, "http://api.funtao8.com/msg.php?m_resid=%s", res_id);
-				pOutPutLog(cUrl);
-				if (
-					(curl_code = curl_easy_setopt(curl, CURLOPT_URL, cUrl)) == CURLE_OK &&
-					(curl_code = curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36")) == CURLE_OK &&
-					(curl_code = curl_easy_setopt(curl, CURLOPT_WRITEDATA, &cpv)) == CURLE_OK &&
-					(curl_code = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CurlReqProcess)) == CURLE_OK
-					) {
-					if ((curl_code = curl_easy_perform(curl)) == CURLE_OK) {
-						int curl_http_code = 0;
-						if (curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &curl_http_code) == CURLE_OK) {
-							if (curl_http_code == 200) {
-								//编码转换 UTF-8=》UNICODE
-								wchar_t *pwBody = NULL;
-								if ((pwBody = UTF8ToUnicode((char*)cpv.buffer)) != NULL) {
-									//4KB
-									char puBody[4096] = { 0 };
-									if ((i = WChar2Char(pwBody, puBody))) {
-										char* pTmpBody = puBody;
-										pTmpBody += strlen(pCommand);
-										if (strstr(pTmpBody, "<?xml")) {
-											pSendXML(RobotQQ, MsgType, MsgType, NULL, MsgFrom, pTmpBody, 0);
-										}if (strstr(pTmpBody, "{")) {
-											pSendJSON(RobotQQ, MsgType, MsgType, NULL, MsgFrom, pTmpBody);
+				CURLcode curl_code = CURL_LAST;
+				CURL *curl = curl_easy_init();
+				if (curl) {
+					char cUrl[1024] = { 0 };
+					//第三方API解析长消息
+					CURL_PROCESS_VAL cpv = { 0 };
+					sprintf_s(cUrl, "http://api.funtao8.com/msg.php?m_resid=%s", res_id);
+					pOutPutLog(cUrl);
+					if (
+						(curl_code = curl_easy_setopt(curl, CURLOPT_URL, cUrl)) == CURLE_OK &&
+						(curl_code = curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36")) == CURLE_OK &&
+						(curl_code = curl_easy_setopt(curl, CURLOPT_WRITEDATA, &cpv)) == CURLE_OK &&
+						(curl_code = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CurlReqProcess)) == CURLE_OK
+						) {
+						if ((curl_code = curl_easy_perform(curl)) == CURLE_OK) {
+							int curl_http_code = 0;
+							if (curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &curl_http_code) == CURLE_OK) {
+								if (curl_http_code == 200) {
+									//编码转换 UTF-8=》UNICODE
+									wchar_t *pwBody = NULL;
+									if ((pwBody = UTF8ToUnicode((char*)cpv.buffer)) != NULL) {
+										//4KB
+										char puBody[4096] = { 0 };
+										if ((i = WChar2Char(pwBody, puBody))) {
+											char* pTmpBody = puBody;
+											pTmpBody += strlen(pCommand);
+											if (strstr(pTmpBody, "<?xml")) {
+												pSendXML(RobotQQ, SEND_TYPE, MsgType, (MsgType == MT_FRIEND ? NULL : MsgFrom), MsgFrom, pTmpBody, 0);
+											}if (strstr(pTmpBody, "{")) {
+												pSendJSON(RobotQQ, SEND_TYPE, MsgType, (MsgType == MT_FRIEND ? NULL : MsgFrom), MsgFrom, pTmpBody);
+											}
+											else {
+												pOutPutLog(pTmpBody);
+											}
 										}
-										else {
-											pOutPutLog(pTmpBody);
-										}
+										free(pwBody);
 									}
-									free(pwBody);
+								}
+								else {
+									memset(cUrl, 0, sizeof(cUrl));
+									sprintf_s(cUrl, "请求失败:%d", curl_http_code);
+									pOutPutLog(cUrl);
 								}
 							}
-							else {
-								memset(cUrl, 0, sizeof(cUrl));
-								sprintf_s(cUrl, "请求失败:%d", curl_http_code);
-								pOutPutLog(cUrl);
-							}
+						}
+						else {
+							pOutPutLog(curl_easy_strerror(curl_code));
 						}
 					}
 					else {
 						pOutPutLog(curl_easy_strerror(curl_code));
 					}
+					curl_easy_cleanup(curl);
 				}
-				else {
-					pOutPutLog(curl_easy_strerror(curl_code));
+			}
+			else {
+				Msg += strlen(pCommand);
+				if (strstr(Msg, "<?xml")) {
+					pSendXML(RobotQQ, SEND_TYPE, MsgType, (MsgType == MT_FRIEND ? NULL : MsgFrom), MsgFrom, Msg, 0);
+				}if (strstr(Msg, "{")) {
+					pSendJSON(RobotQQ, SEND_TYPE, MsgType, (MsgType == MT_FRIEND ? NULL : MsgFrom), MsgFrom, Msg);
 				}
-				curl_easy_cleanup(curl);
 			}
 		}
 		else {
-			Msg += strlen(pCommand);
-			if (strstr(Msg, "<?xml")) {
-				pSendXML(RobotQQ, MsgType, MsgType, NULL, MsgFrom, Msg, 0);
-			}if (strstr(Msg, "{")) {
-				pSendJSON(RobotQQ, MsgType, MsgType, NULL, MsgFrom, Msg);
+			//逆向转换卡片到xml或json
+			if (strstr(Msg, "<?xml") || strstr(Msg, "{")) {
+				pSendMsg(RobotQQ, MsgType, (MsgType == MT_FRIEND ? NULL : MsgFrom), MsgFrom, Msg, 1);
 			}
-			else {
-			}
-		}
-	}
-	else {
-		//逆向转换卡片到xml或json
-		if (strstr(Msg, "<?xml") || strstr(Msg, "{")) {
-			pSendMsg(RobotQQ, MsgType, NULL, MsgFrom, Msg, 1);
 		}
 	}
 	return (MT_CONTINUE);
