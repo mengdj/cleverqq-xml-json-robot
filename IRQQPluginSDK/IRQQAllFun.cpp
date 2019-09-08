@@ -292,9 +292,14 @@ unsigned WINAPI CheckUpdateProc(LPVOID lpParameter) {
 										while (ReadFile(cpv.param, bCrcBuffer, 2048, &iRealBytes, NULL) && iRealBytes) {
 											crc = crc32(crc, bCrcBuffer, iRealBytes);
 										}
-										sprintf_s(sTarCrc, "%X", crc);
+										sprintf_s(sTarCrc, "%08X", crc);
 										if (strcmp(sTarCrc, sCrc) == 0) {
 											bCRCValiate = TRUE;
+										}
+										else {
+											CHAR sCrcErrMsg[32] = {0};
+											sprintf_s(sCrcErrMsg, "CRC校验错误 %s:%s", sCrc, sTarCrc);
+											pPlugin->log(sCrcErrMsg);
 										}
 									}
 									CloseHandle(cpv.param);
@@ -338,9 +343,6 @@ unsigned WINAPI CheckUpdateProc(LPVOID lpParameter) {
 												//失败，略
 											}
 										}
-									}
-									else {
-										pPlugin->log("CRC校验错误");
 									}
 								}
 								else {
