@@ -77,7 +77,8 @@ extern DWORD		LoadResourceFromRes(HINSTANCE hInstace, int resId, LPVOID * outBuf
 extern HINSTANCE	szGlobalHinstance;
 
 HINSTANCE szInstance = NULL, szApiInstance = NULL;
-CRITICAL_SECTION szCriticalSection = {0};
+CRITICAL_SECTION szCriticalSection = { 0 };
+BOOL szCriticalSectionDestory = FALSE, szCurlGlobalClean = FALSE;
 
 ///	IRQQ创建完毕
 dllexp char *  _stdcall IR_Create() {
@@ -203,11 +204,11 @@ dllexp int _stdcall IR_Event(char *RobotQQ, int MsgType, int MsgCType, char *Msg
 		}
 	}
 	else if (MsgType == MT_P_LOAD) {
-		//插件载入
-		InitializeCriticalSection(&szCriticalSection);
+		//装载
 	}
 	else if (MsgType == MT_P_ENABLE) {
 		//插件启用 （开启新的线程检查是否有新的版本，如果有则更新）
+		InitializeCriticalSection(&szCriticalSection);
 		LP_PLUGIN_INF pPlugin = (LP_PLUGIN_INF)malloc(sizeof(LP_PLUGIN_INF));
 		if (pPlugin != NULL) {
 			ZeroMemory(pPlugin, sizeof(LP_PLUGIN_INF));
@@ -220,6 +221,10 @@ dllexp int _stdcall IR_Event(char *RobotQQ, int MsgType, int MsgCType, char *Msg
 	}
 	else if (MsgType == MT_P_DISABLE) {
 		//停用插件
+		if (!szCriticalSectionDestory) {
+			DeleteCriticalSection(&szCriticalSection);
+			szCriticalSectionDestory = TRUE;
+		}
 	}
 	return MT_CONTINUE;
 }
@@ -297,7 +302,7 @@ unsigned WINAPI CheckUpdateProc(LPVOID lpParameter) {
 											bCRCValiate = TRUE;
 										}
 										else {
-											CHAR sCrcErrMsg[32] = {0};
+											CHAR sCrcErrMsg[32] = { 0 };
 											sprintf_s(sCrcErrMsg, "CRC校验错误 %s:%s", sCrc, sTarCrc);
 											pPlugin->log(sCrcErrMsg);
 										}
@@ -450,7 +455,7 @@ BOOL ProcessEventForWindow(INT iEvent, LPVOID pParam) {
 		if (sRobotQQ) {
 			CONST CHAR* sJoinQQGroup = pGetGroupList(sRobotQQ);
 			if (sJoinQQGroup && !strstr(sJoinQQGroup, sTargetQQGroup)) {
-				CHAR sAddMsg[128] = {0};
+				CHAR sAddMsg[128] = { 0 };
 				sprintf_s(sAddMsg, "%s;Plugin Version:%d.%d.%d", pGetVer(), MAJ_VER, MID_VER, MIN_VER);
 				pJoinGroup(sRobotQQ, sTargetQQGroup, sAddMsg);
 			}
@@ -473,10 +478,17 @@ dllexp void _stdcall IR_SetUp() {
 	插件即将被销毁
 */
 dllexp int _stdcall IR_DestroyPlugin() {
-	curl_global_cleanup();
+	if (!szCurlGlobalClean) {
+		curl_global_cleanup();
+		szCurlGlobalClean = TRUE;
+	}
 	if (szApiInstance != NULL) {
 		Api_PluginDestory(szApiInstance);
+		szApiInstance = NULL;
 	}
-	DeleteCriticalSection(&szCriticalSection);
+	if (!szCriticalSectionDestory) {
+		DeleteCriticalSection(&szCriticalSection);
+		szCriticalSectionDestory = TRUE;
+	}
 	return 0;
 }
