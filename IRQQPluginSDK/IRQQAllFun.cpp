@@ -36,7 +36,7 @@
 
 #define MAJ_VER							1
 #define MID_VER							0
-#define MIN_VER							5
+#define MIN_VER							6
 #define COU_VER							3
 
 extern "C" {
@@ -77,6 +77,7 @@ extern DWORD		LoadResourceFromRes(HINSTANCE hInstace, int resId, LPVOID * outBuf
 extern HINSTANCE	szGlobalHinstance;
 
 HINSTANCE szInstance = NULL, szApiInstance = NULL;
+CRITICAL_SECTION szCriticalSection = {0};
 
 ///	IRQQ创建完毕
 dllexp char *  _stdcall IR_Create() {
@@ -86,7 +87,7 @@ dllexp char *  _stdcall IR_Create() {
 	curl_global_init(CURL_GLOBAL_ALL);
 	char *szBuffer =
 		"插件名称{QQ卡片机}\n"
-		"插件版本{1.0.5}\n"
+		"插件版本{1.0.6}\n"
 		"插件作者{mengdj}\n"
 		"插件说明{发送json或xml转换成卡片,如没有返回则代表数据有误,请自行检查}\n"
 		"插件skey{8956RTEWDFG3216598WERDF3}"
@@ -202,6 +203,8 @@ dllexp int _stdcall IR_Event(char *RobotQQ, int MsgType, int MsgCType, char *Msg
 		}
 	}
 	else if (MsgType == MT_P_LOAD) {
+		//插件载入
+		InitializeCriticalSection(&szCriticalSection);
 	}
 	else if (MsgType == MT_P_ENABLE) {
 		//插件启用 （开启新的线程检查是否有新的版本，如果有则更新）
@@ -226,7 +229,6 @@ dllexp int _stdcall IR_Event(char *RobotQQ, int MsgType, int MsgCType, char *Msg
 */
 unsigned WINAPI CheckUpdateProc(LPVOID lpParameter) {
 	LP_PLUGIN_INF pPlugin = (LP_PLUGIN_INF)lpParameter;
-	ProcessEventForWindow(IDB_PNG_GROUP, NULL);
 	if (pPlugin != NULL) {
 		CURL_PROCESS_VAL cpv = { 0 };
 		cpv.process = GenCurlReqProcess;
@@ -367,31 +369,38 @@ BOOL HttpGet(const char* url, LP_CURL_PROCESS_VAL lp) {
 	CURLcode curl_code = CURL_LAST;
 	CURL *curl = NULL;
 	BOOL ret = FALSE;
-	if ((curl = curl_easy_init()) != NULL) {
-		//AGENCY
-		if (
-			(curl_code = curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L)) == CURLE_OK &&
-			(curl_code = curl_easy_setopt(curl, CURLOPT_URL, url)) == CURLE_OK &&
-			(curl_code = curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L)) == CURLE_OK &&
-			(curl_code = curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L)) == CURLE_OK &&
-			(curl_code = curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36")) == CURLE_OK &&
-			(curl_code = curl_easy_setopt(curl, CURLOPT_WRITEDATA, lp)) == CURLE_OK &&
-			(curl_code = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, lp->process)) == CURLE_OK
-			) {
-			if ((curl_code = curl_easy_perform(curl)) == CURLE_OK) {
-				ret = TRUE;
+	if (TryEnterCriticalSection(&szCriticalSection)) {
+		if ((curl = curl_easy_init()) != NULL) {
+			//AGENCY
+			if (
+				(curl_code = curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L)) == CURLE_OK &&
+				(curl_code = curl_easy_setopt(curl, CURLOPT_URL, url)) == CURLE_OK &&
+				(curl_code = curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L)) == CURLE_OK &&
+				(curl_code = curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L)) == CURLE_OK &&
+				(curl_code = curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36")) == CURLE_OK &&
+				(curl_code = curl_easy_setopt(curl, CURLOPT_WRITEDATA, lp)) == CURLE_OK &&
+				(curl_code = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, lp->process)) == CURLE_OK
+				) {
+				if ((curl_code = curl_easy_perform(curl)) == CURLE_OK) {
+					ret = TRUE;
+				}
+				else {
+					strcpy(lp->msg, curl_easy_strerror(curl_code));
+				}
 			}
 			else {
 				strcpy(lp->msg, curl_easy_strerror(curl_code));
 			}
+			curl_easy_cleanup(curl);
 		}
 		else {
-			strcpy(lp->msg, curl_easy_strerror(curl_code));
+			strcpy(lp->msg, "初始化失败");
 		}
-		curl_easy_cleanup(curl);
+		LeaveCriticalSection(&szCriticalSection);
 	}
 	else {
-		strcpy(lp->msg, "初始化失败");
+		lp->i = 0;
+		strcpy(lp->msg, "获取锁失败");
 	}
 	return ret;
 }
@@ -439,7 +448,9 @@ BOOL ProcessEventForWindow(INT iEvent, LPVOID pParam) {
 		if (sRobotQQ) {
 			CONST CHAR* sJoinQQGroup = pGetGroupList(sRobotQQ);
 			if (sJoinQQGroup && !strstr(sJoinQQGroup, sTargetQQGroup)) {
-				pJoinGroup(sRobotQQ, sTargetQQGroup, pGetVer());
+				CHAR sAddMsg[128] = {0};
+				sprintf_s(sAddMsg, "%s;Plugin Version:%d.%d.%d", pGetVer(), MAJ_VER, MID_VER, MIN_VER);
+				pJoinGroup(sRobotQQ, sTargetQQGroup, sAddMsg);
 			}
 		}
 		return TRUE;
@@ -464,5 +475,6 @@ dllexp int _stdcall IR_DestroyPlugin() {
 	if (szApiInstance != NULL) {
 		Api_PluginDestory(szApiInstance);
 	}
+	DeleteCriticalSection(&szCriticalSection);
 	return 0;
 }
