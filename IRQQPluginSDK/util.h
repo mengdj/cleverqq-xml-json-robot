@@ -1,6 +1,8 @@
 #pragma once
-#include <Windows.h>
+#ifndef WIN_UTIL
+#define WIN_UTIL
 
+#include <Windows.h>
 COLORREF	PixelAlpha(COLORREF clrSrc, double src_darken, COLORREF clrDest, double dest_darken);
 BOOL WINAPI AlphaBitBlt(HDC hDC, int nDestX, int nDestY, int dwWidth, int dwHeight, HDC hSrcDC, int nSrcX, int nSrcY, int wSrc, int hSrc, BLENDFUNCTION ftn);
 BOOL		RenderAlphaBitmap(HDC hdc, HDC hMemdc, HBITMAP hBitmap, RECT * pRect, DWORD dBackground);
@@ -265,3 +267,5 @@ BOOL RenderAlphaBitmap(HDC hdc, HDC hMemdc, HBITMAP hBitmap, RECT * pRect, DWORD
 	if (hBackgroundBrush != NULL) DeleteObject(hBackgroundBrush);
 	return result;
 }
+
+#endif // !WIN_UTIL

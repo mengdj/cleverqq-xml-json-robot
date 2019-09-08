@@ -97,10 +97,15 @@ Api_HandleFriendEvent pHandleFriendEvent;
 Api_GetWpa pGetWpa;
 Api_GetGroupMemberList_C pGetGroupMemberList_C;
 
+BOOL Api_PluginDestory(HINSTANCE hDllInst) {
+	if (hDllInst != NULL) {
+		return FreeLibrary(hDllInst);
+	}
+	return FALSE;
+}
 
-void CreateDllProc()
-{
-	HINSTANCE hDllInst = LoadLibrary(L"IRapi.dll");
+HINSTANCE Api_PluginInit() {
+	HINSTANCE hDllInst=LoadLibrary(L"IRapi.dll");
 	if (hDllInst != NULL)
 	{
 		pAddBkList = (Api_AddBkList)GetProcAddress(hDllInst, "Api_AddBkList");
@@ -196,8 +201,6 @@ void CreateDllProc()
 		pHandleFriendEvent = (Api_HandleFriendEvent)GetProcAddress(hDllInst, "Api_HandleFriendEvent");
 		pGetWpa = (Api_GetWpa)GetProcAddress(hDllInst, "Api_GetWpa");
 		pGetGroupMemberList_C = (Api_GetGroupMemberList_C)GetProcAddress(hDllInst, "Api_GetGroupMemberList_C");
-
-		FreeLibrary(hDllInst);
 	}
-	return;
+	return hDllInst;
 }

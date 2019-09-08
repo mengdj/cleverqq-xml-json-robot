@@ -1,5 +1,6 @@
 #define WINVER 0x0500
 #include <windows.h>
+#include <process.h>
 #if defined _M_IX86
 #pragma comment(linker,"/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='x86' publicKeyToken='6595b64144ccf1df' language='*'\"")
 #elif defined _M_IA64
@@ -11,10 +12,10 @@
 #endif
 #include <commctrl.h>
 #pragma comment(lib,"comctl32.lib")
-
 #include "util.h"
 #ifndef STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
+#define STBI_ONLY_PNG
 #include "stb_image.h"
 #endif
 #include "resource.h"
@@ -38,7 +39,7 @@ typedef BOOL(*ProcessEvent)(INT, LPVOID);
 ProcessEvent szEvent = NULL;
 
 LRESULT CALLBACK	PluginWndProc(HWND, UINT, WPARAM, LPARAM);
-DWORD	WINAPI		ThreadMsgProc(LPVOID lpParameter);
+unsigned WINAPI 	ThreadMsgProc(LPVOID lpParameter);
 ATOM	WINAPI		InitSetWindow(HINSTANCE);
 BOOL	WINAPI		UninitSetWindow(HINSTANCE);
 VOID				UpdateTooltipEx(HWND, HWND, LPRECT, WCHAR*);
@@ -48,13 +49,13 @@ VOID				xLog(int line, const char* format, ...);
 int WINAPI PluginWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow) {
 	if (!szShow) {
 		static TCHAR szAppName[] = TEXT("CleverQQPluginCardSetWindow");
-		CreateThread(NULL, 0, ThreadMsgProc, hInstance, 0, NULL);
+		_beginthreadex(NULL, 0, ThreadMsgProc, hInstance, 0, NULL);
 		szShow = TRUE;
 	}
 	return 0;
 }
 
-DWORD WINAPI ThreadMsgProc(LPVOID lpParameter) {
+unsigned WINAPI ThreadMsgProc(LPVOID lpParameter) {
 	if (InitSetWindow(szGlobalHinstance)) {
 		HWND         hWnd;
 		MSG          msg;
@@ -103,7 +104,7 @@ LRESULT CALLBACK PluginWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 		szDonateRect.left = szClientRect.left + 1;
 		szDonateRect.top = szMenuBarRect.bottom;
 		szDonateRect.right = szClientRect.right - 1;
-		szDonateRect.bottom = szClientRect.bottom-1;
+		szDonateRect.bottom = szClientRect.bottom - 1;
 
 		szBrush[0] = CreateSolidBrush(RGB(0x60, 0x4C, 0x40));
 		szFont[0] = CreateFont(
@@ -201,7 +202,8 @@ LRESULT CALLBACK PluginWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 		szMouse.l_button_down = TRUE;
 		if (PtInRect(&szCloseRect, point) == TRUE) {
 			PostMessage(hwnd, WM_CLOSE, (WPARAM)NULL, (LPARAM)NULL);
-		} else if (PtInRect(&szDiyRect, point) == TRUE&&szEvent) {
+		}
+		else if (PtInRect(&szDiyRect, point) == TRUE&&szEvent) {
 			return szEvent(IDB_PNG_GROUP, NULL);
 		}
 		break;

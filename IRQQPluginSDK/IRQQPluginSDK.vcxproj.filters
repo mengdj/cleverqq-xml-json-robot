@@ -36,8 +36,17 @@
     <ClInclude Include="iconv.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="cJSON.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="zlib.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="cJSON.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
     <ClCompile Include="dllmain.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
@@ -52,6 +61,7 @@
     <None Include="Source.def">
       <Filter>源文件</Filter>
     </None>
+    <None Include="res\update.exe" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="IRQQPluginSDK.rc">
