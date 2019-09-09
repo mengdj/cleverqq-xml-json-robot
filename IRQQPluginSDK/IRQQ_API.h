@@ -105,8 +105,8 @@ BOOL Api_PluginDestory(HINSTANCE hDllInst) {
 }
 
 HINSTANCE Api_PluginInit() {
-	HINSTANCE hDllInst=LoadLibrary(L"IRapi.dll");
-	if (hDllInst != NULL)
+	HINSTANCE hDllInst = LoadLibrary(TEXT("IRapi.dll"));
+	if (NULL != hDllInst)
 	{
 		pAddBkList = (Api_AddBkList)GetProcAddress(hDllInst, "Api_AddBkList");
 		pAddQQ = (Api_AddQQ)GetProcAddress(hDllInst, "Api_AddQQ");

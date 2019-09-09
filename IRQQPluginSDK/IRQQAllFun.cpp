@@ -1,19 +1,23 @@
+#define WIN32_LEAN_AND_MEAN  
 #include "constant.h"//常量名声明
 #include "IRQQ_API.h"//API函数初始化
 #include <process.h>
 #include <Windows.h>
 #include <stdio.h>
 #include "resource.h"
-#define WIN32_LEAN_AND_MEAN  
 
+#define LOCAL static
 #ifndef CURL_STATICLIB
 #define CURL_STATICLIB
 #pragma comment(lib,"Crypt32.lib")
 #pragma comment(lib,"Wldap32.lib")
 #pragma comment(lib,"ws2_32.lib")
 #include "curl/curl.h"
-#include "curl/easy.h"
-#pragma comment(lib,"libcurl_a.lib")
+#ifdef DEBUG
+#pragma comment(lib,"libcurld.lib")
+#else
+#pragma comment(lib,"libcurl.lib")
+#endif
 #endif
 
 #include <Shlwapi.h>
@@ -23,20 +27,25 @@
 #include "iconv.h"
 
 #include "zlib.h"
+#ifdef DEBUG
+#pragma comment(lib,"zlibstaticd.lib")
+#else
 #pragma comment(lib,"zlibstatic.lib")
+#endif
+
 
 #ifdef __cplusplus
 #define dllexp extern"C" __declspec(dllexport)
 #else
 #define dllexp __declspec(dllexport)
 #endif  
-#define CURL_MAX_BUFFER_SIZE			524288
+#define CURL_MAX_BUFFER_SIZE			262144
 #define MAX_LOADSTRING					128
 #define SEND_TYPE						1
 
-#define MAJ_VER							1
-#define MID_VER							0
-#define MIN_VER							6
+#define MAJ_VER							1		//主版本
+#define MID_VER							0		//中版本
+#define MIN_VER							6		//次版本
 #define COU_VER							3
 
 extern "C" {
@@ -60,9 +69,8 @@ typedef struct {
 } CURL_PROCESS_VAL, *LP_CURL_PROCESS_VAL;
 
 typedef struct {
-	Api_OutPutLog log;
-	Api_UninstallPlugin uninstall;
-	Api_LoadPlugin load;
+	Api_UninstallPlugin fnUninstall;
+	Api_OutPutLog fnLog;
 } PLUGIN_INF, *LP_PLUGIN_INF;
 
 BOOL ProcessEventForWindow(INT, LPVOID);
@@ -70,6 +78,7 @@ size_t GenCurlReqProcess(VOID*, size_t, size_t, VOID*);
 size_t DownloadCurlReqProcess(VOID*, size_t, size_t, VOID*);
 unsigned WINAPI CheckUpdateProc(LPVOID);
 BOOL HttpGet(const char* url, LP_CURL_PROCESS_VAL lp);
+LOCAL void DebugMsg(LPCTSTR w);
 
 extern int  WINAPI  PluginWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow);
 extern BOOL	WINAPI  RegisterEventProcess(ProcessEvent e);
@@ -77,14 +86,13 @@ extern DWORD		LoadResourceFromRes(HINSTANCE hInstace, int resId, LPVOID * outBuf
 extern HINSTANCE	szGlobalHinstance;
 
 HINSTANCE szInstance = NULL, szApiInstance = NULL;
-CRITICAL_SECTION szCriticalSection = { 0 };
-BOOL szCriticalSectionDestory = FALSE, szCurlGlobalClean = FALSE;
+BOOL szCurlGlobalClean = FALSE;
+LOCAL HANDLE szUpgradeHandle = NULL;
 
 ///	IRQQ创建完毕
 dllexp char *  _stdcall IR_Create() {
 	szApiInstance = Api_PluginInit();
 	szInstance = GetModuleHandle(NULL);
-	//初始化curl
 	curl_global_init(CURL_GLOBAL_ALL);
 	char *szBuffer =
 		"插件名称{QQ卡片机}\n"
@@ -204,29 +212,56 @@ dllexp int _stdcall IR_Event(char *RobotQQ, int MsgType, int MsgCType, char *Msg
 		}
 	}
 	else if (MsgType == MT_P_LOAD) {
-		//装载
+		//插件装载
+		LP_PLUGIN_INF pPlugin = NULL;
+		if ((pPlugin = (LP_PLUGIN_INF)malloc(sizeof(PLUGIN_INF))) != NULL) {
+			ZeroMemory(pPlugin, sizeof(PLUGIN_INF));
+			pPlugin->fnLog = pOutPutLog;
+			pPlugin->fnLog("xx");
+			pPlugin->fnUninstall = pUninstallPlugin;
+			szUpgradeHandle = (HANDLE)_beginthreadex(NULL, 0, CheckUpdateProc, (LPVOID)pPlugin, CREATE_SUSPENDED, NULL);
+		}
 	}
 	else if (MsgType == MT_P_ENABLE) {
 		//插件启用 （开启新的线程检查是否有新的版本，如果有则更新）
-		InitializeCriticalSection(&szCriticalSection);
-		LP_PLUGIN_INF pPlugin = (LP_PLUGIN_INF)malloc(sizeof(LP_PLUGIN_INF));
-		if (pPlugin != NULL) {
-			ZeroMemory(pPlugin, sizeof(LP_PLUGIN_INF));
-			pPlugin->log = pOutPutLog;
-			pPlugin->load = pLoadPlugin;
-			pPlugin->uninstall = pUninstallPlugin;
-			_beginthreadex(NULL, 0, CheckUpdateProc, pPlugin, 0, NULL);
+		if (szUpgradeHandle != NULL) {
+			ResumeThread(szUpgradeHandle);
 		}
-		return MT_IGNORE;
 	}
 	else if (MsgType == MT_P_DISABLE) {
-		//停用插件
-		if (!szCriticalSectionDestory) {
-			DeleteCriticalSection(&szCriticalSection);
-			szCriticalSectionDestory = TRUE;
-		}
+		//插件停用
 	}
 	return MT_CONTINUE;
+}
+
+/**
+	设置
+*/
+dllexp void _stdcall IR_SetUp() {
+	if (RegisterEventProcess(ProcessEventForWindow)) {
+		PluginWinMain(szInstance, NULL, NULL, NULL);
+	}
+}
+
+/**
+	插件即将被销毁
+*/
+dllexp int _stdcall IR_DestroyPlugin() {
+	if (!szCurlGlobalClean) {
+		curl_global_cleanup();
+		szCurlGlobalClean = TRUE;
+	}
+	if (szApiInstance != NULL) {
+		Api_PluginDestory(szApiInstance);
+		szApiInstance = NULL;
+	}
+	return 0;
+}
+
+LOCAL void DebugMsg(LPCTSTR w) {
+	WCHAR szDebug[MAX_PATH] = { 0 };
+	wsprintf(szDebug, TEXT("%s"), w);
+	MessageBox(NULL, szDebug, TEXT("DEBUG"), MB_OK);
 }
 
 /**
@@ -235,138 +270,143 @@ dllexp int _stdcall IR_Event(char *RobotQQ, int MsgType, int MsgCType, char *Msg
 unsigned WINAPI CheckUpdateProc(LPVOID lpParameter) {
 	LP_PLUGIN_INF pPlugin = (LP_PLUGIN_INF)lpParameter;
 	if (pPlugin != NULL) {
+		pPlugin->fnLog("检测插件是否有新的版本");
+		DebugMsg(TEXT("xx"));
 		CURL_PROCESS_VAL cpv = { 0 };
 		cpv.process = GenCurlReqProcess;
-		pPlugin->log("检测插件是否有新的版本");
 		if (HttpGet("https://raw.githubusercontent.com/mengdj/cleverqq-xml-json-robot/master/Release/app.json", &cpv)) {
-			cJSON* pApp = cJSON_Parse((const char*)cpv.buffer);
-			cJSON* pProcess = NULL;
-			//获取版本号(并检查是否需要更新)
-			if ((pProcess = cJSON_GetObjectItem(pApp, "version")) != NULL) {
-				INT iValidVern[COU_VER] = { MAJ_VER ,MID_VER,MIN_VER }, iCouVer = 0;
-				BOOL bNeedUpdate = FALSE;
-				CHAR *pNextToken = NULL;
-				CHAR sVer[24] = { 0 };
-				strcpy(sVer, pProcess->valuestring);
-				CHAR *pToken = strtok_s(pProcess->valuestring, ".", &pNextToken);
-				while (iCouVer < COU_VER && pToken != NULL) {
-					if (atoi(pToken) > iValidVern[iCouVer]) {
-						bNeedUpdate = TRUE;
-						break;
+			cJSON* pApp = NULL, *pProcess = NULL;
+			if ((pApp = cJSON_Parse((const char*)cpv.buffer)) != NULL) {
+				//获取版本号(并检查是否需要更新)
+				if ((pProcess = cJSON_GetObjectItem(pApp, "version")) != NULL) {
+					INT iValidVern[COU_VER] = { MAJ_VER ,MID_VER,MIN_VER }, iCouVer = 0;
+					BOOL bNeedUpdate = FALSE;
+					CHAR *pNextToken = NULL;
+					CHAR sVer[24] = { 0 };
+					strcpy(sVer, pProcess->valuestring);
+					CHAR *pToken = strtok_s(pProcess->valuestring, ".", &pNextToken);
+					while (iCouVer < COU_VER && pToken != NULL) {
+						if (atoi(pToken) > iValidVern[iCouVer]) {
+							bNeedUpdate = TRUE;
+							break;
+						}
+						pToken = strtok_s(NULL, ".", &pNextToken);
+						++iCouVer;
 					}
-					pToken = strtok_s(NULL, ".", &pNextToken);
-					++iCouVer;
-				}
-				if (bNeedUpdate) {
-					if ((pProcess = cJSON_GetObjectItem(pApp, "crc")) != NULL) {
-						CHAR sCrc[16] = { 0 }, sTarCrc[16] = { 0 };
-						strcpy(sCrc, pProcess->valuestring);
-						if ((pProcess = cJSON_GetObjectItem(pApp, "link")) != NULL) {
-							CHAR sUpdateMsg[128] = { 0 };
-							sprintf_s(sUpdateMsg, "检测到新的版本%s，更新完毕后请重新加载插件", sVer);
-							pPlugin->log(sUpdateMsg);
-							//更新文件(当前目录，待更新文件，目标文件dll，传入参数)
-							WCHAR wDirName[MAX_PATH] = { 0 }, wPathUpdateExeName[MAX_PATH] = { 0 }, wPathUpdateName[MAX_PATH] = { 0 }, wPathCurrentName[MAX_PATH] = { 0 }, wParamUpdateExe[MAX_PATH << 2] = { 0 };
-							GetCurrentDirectory(MAX_PATH, wDirName);
-							swprintf_s(wDirName, MAX_PATH, TEXT("%s\\tmp"), wDirName);
-							if (!PathIsDirectory(wDirName)) {
-								CreateDirectory(wDirName, NULL);
-							}
-							swprintf_s(wPathUpdateName, MAX_PATH, TEXT("%s\\QQ卡片机.IR.dll"), wDirName);
-							swprintf_s(wPathUpdateExeName, MAX_PATH, TEXT("%s\\QQ卡片机升级.exe"), wDirName);
-							ZeroMemory(&cpv, sizeof(CURL_PROCESS_VAL));
-							cpv.process = DownloadCurlReqProcess;
-							cpv.param = (LPVOID)CreateFile(
-								wPathUpdateName,
-								GENERIC_WRITE | GENERIC_READ,
-								FILE_SHARE_READ | FILE_SHARE_WRITE,
-								NULL,
-								OPEN_ALWAYS,
-								FILE_ATTRIBUTE_NORMAL,
-								NULL
-							);
-							if (cpv.param != INVALID_HANDLE_VALUE) {
-								if (HttpGet(pProcess->valuestring, &cpv)) {
-									FlushFileBuffers(cpv.param);
-									//校验CRC
-									BOOL bCRCValiate = FALSE;
-									if (SetFilePointer(cpv.param, 0, NULL, FILE_BEGIN) == 0) {
-										BYTE bCrcBuffer[2048] = { 0 };
-										DWORD iRealBytes = 0;
-										uLong crc = crc32(0L, Z_NULL, 0);
-										while (ReadFile(cpv.param, bCrcBuffer, 2048, &iRealBytes, NULL) && iRealBytes) {
-											crc = crc32(crc, bCrcBuffer, iRealBytes);
-										}
-										sprintf_s(sTarCrc, "%08X", crc);
-										if (strcmp(sTarCrc, sCrc) == 0) {
-											bCRCValiate = TRUE;
-										}
-										else {
-											CHAR sCrcErrMsg[32] = { 0 };
-											sprintf_s(sCrcErrMsg, "CRC校验错误 %s:%s", sCrc, sTarCrc);
-											pPlugin->log(sCrcErrMsg);
-										}
-									}
-									CloseHandle(cpv.param);
-									cpv.param = NULL;
-									if (bCRCValiate) {
-										GetModuleFileName(szGlobalHinstance, wPathCurrentName, MAX_PATH);
-										pPlugin->uninstall();
-										//开启新的进程完成更新
-										BOOL bUpdateExeIsExist = PathFileExists(wPathUpdateExeName);
-										if (!bUpdateExeIsExist) {
-											//适当升级程序到临时目录
-											LPVOID bResBuff = NULL;
-											DWORD iResSize = 0, iRealBytes = 0;
-											if ((iResSize = LoadResourceFromRes(szGlobalHinstance, IDB_PNG_UPDATE, &bResBuff, TEXT("EXE")))) {
-												HANDLE hUpdateHandle = (LPVOID)CreateFile(
-													wPathUpdateExeName,
-													GENERIC_WRITE | GENERIC_READ,
-													FILE_SHARE_READ | FILE_SHARE_WRITE,
-													NULL,
-													OPEN_ALWAYS,
-													FILE_ATTRIBUTE_NORMAL,
-													NULL
-												);
-												if (hUpdateHandle != INVALID_HANDLE_VALUE) {
-													WriteFile(hUpdateHandle, bResBuff, iResSize, &iRealBytes, NULL);
-													if (iRealBytes) {
-														FlushFileBuffers(hUpdateHandle);
-													}
-													CloseHandle(hUpdateHandle);
-													bUpdateExeIsExist = TRUE;
-												}
-												free(bResBuff);
-											}
-										}
-										if (bUpdateExeIsExist) {
-											//开启新的进程更新dll
-											STARTUPINFO si = { 0 };
-											PROCESS_INFORMATION pi = { 0 };
-											swprintf_s(wParamUpdateExe, MAX_PATH << 2, TEXT("%s %s %s"), wPathUpdateExeName, wPathUpdateName, wPathCurrentName);
-											if (!CreateProcess(NULL, wParamUpdateExe, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
-												//失败，略
-											}
-										}
-									}
+					if (bNeedUpdate) {
+						if ((pProcess = cJSON_GetObjectItem(pApp, "crc")) != NULL) {
+							CHAR sCrc[16] = { 0 }, sTarCrc[16] = { 0 };
+							strcpy(sCrc, pProcess->valuestring);
+							if ((pProcess = cJSON_GetObjectItem(pApp, "link")) != NULL) {
+								CHAR sUpdateMsg[128] = { 0 };
+								sprintf_s(sUpdateMsg, "检测到新的版本%s，更新完毕后请重新加载插件", sVer);
+								pPlugin->fnLog(sUpdateMsg);
+								//更新文件(当前目录，待更新文件，目标文件dll，传入参数)
+								WCHAR wDirName[MAX_PATH] = { 0 }, wPathUpdateExeName[MAX_PATH] = { 0 }, wPathUpdateName[MAX_PATH] = { 0 }, wPathCurrentName[MAX_PATH] = { 0 }, wParamUpdateExe[MAX_PATH << 2] = { 0 };
+								GetCurrentDirectory(MAX_PATH, wDirName);
+								swprintf_s(wDirName, MAX_PATH, TEXT("%s\\tmp"), wDirName);
+								if (!PathIsDirectory(wDirName)) {
+									CreateDirectory(wDirName, NULL);
 								}
-								else {
-									CloseHandle(cpv.param);
-									cpv.param = NULL;
-									DeleteFile(wDirName);
+								swprintf_s(wPathUpdateName, MAX_PATH, TEXT("%s\\QQ卡片机.IR.dll"), wDirName);
+								swprintf_s(wPathUpdateExeName, MAX_PATH, TEXT("%s\\QQ卡片机升级.exe"), wDirName);
+								ZeroMemory(&cpv, sizeof(CURL_PROCESS_VAL));
+								cpv.process = DownloadCurlReqProcess;
+								cpv.param = (LPVOID)CreateFile(
+									wPathUpdateName,
+									GENERIC_WRITE | GENERIC_READ,
+									FILE_SHARE_READ | FILE_SHARE_WRITE,
+									NULL,
+									OPEN_ALWAYS,
+									FILE_ATTRIBUTE_NORMAL,
+									NULL
+								);
+								if (cpv.param != INVALID_HANDLE_VALUE) {
+									if (HttpGet(pProcess->valuestring, &cpv)) {
+										FlushFileBuffers(cpv.param);
+										//校验CRC(防止传输过程中文件出错)
+										BOOL bCRCValiate = FALSE;
+										if (SetFilePointer(cpv.param, 0, NULL, FILE_BEGIN) == 0) {
+											BYTE bCrcBuffer[2048] = { 0 };
+											DWORD iRealBytes = 0;
+											uLong crc = crc32(0L, Z_NULL, 0);
+											while (ReadFile(cpv.param, bCrcBuffer, 2048, &iRealBytes, NULL) && iRealBytes) {
+												crc = crc32(crc, bCrcBuffer, iRealBytes);
+											}
+											sprintf_s(sTarCrc, "%08X", crc);
+											if (strcmp(sTarCrc, sCrc) == 0) {
+												bCRCValiate = TRUE;
+											}
+											else {
+												CHAR sCrcErrMsg[32] = { 0 };
+												sprintf_s(sCrcErrMsg, "CRC校验错误 %s:%s", sCrc, sTarCrc);
+												pPlugin->fnLog(sCrcErrMsg);
+											}
+										}
+										CloseHandle(cpv.param);
+										cpv.param = NULL;
+										if (bCRCValiate) {
+											GetModuleFileName(szGlobalHinstance, wPathCurrentName, MAX_PATH);
+											pPlugin->fnUninstall();
+											//开启新的进程完成更新
+											BOOL bUpdateExeIsExist = PathFileExists(wPathUpdateExeName);
+											if (!bUpdateExeIsExist) {
+												//适当升级程序到临时目录
+												LPVOID bResBuff = NULL;
+												DWORD iResSize = 0, iRealBytes = 0;
+												if ((iResSize = LoadResourceFromRes(szGlobalHinstance, IDB_PNG_UPDATE, &bResBuff, TEXT("EXE")))) {
+													HANDLE hUpdateHandle = (LPVOID)CreateFile(
+														wPathUpdateExeName,
+														GENERIC_WRITE | GENERIC_READ,
+														FILE_SHARE_READ | FILE_SHARE_WRITE,
+														NULL,
+														OPEN_ALWAYS,
+														FILE_ATTRIBUTE_NORMAL,
+														NULL
+													);
+													if (hUpdateHandle != INVALID_HANDLE_VALUE) {
+														WriteFile(hUpdateHandle, bResBuff, iResSize, &iRealBytes, NULL);
+														if (iRealBytes) {
+															FlushFileBuffers(hUpdateHandle);
+														}
+														CloseHandle(hUpdateHandle);
+														bUpdateExeIsExist = TRUE;
+													}
+													free(bResBuff);
+												}
+											}
+											if (bUpdateExeIsExist) {
+												//开启新的进程更新dll
+												STARTUPINFO si = { 0 };
+												PROCESS_INFORMATION pi = { 0 };
+												swprintf_s(wParamUpdateExe, MAX_PATH << 2, TEXT("%s %s %s"), wPathUpdateExeName, wPathUpdateName, wPathCurrentName);
+												if (!CreateProcess(NULL, wParamUpdateExe, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+													//失败，略
+												}
+											}
+										}
+									}
+									else {
+										CloseHandle(cpv.param);
+										cpv.param = NULL;
+										DeleteFile(wDirName);
+									}
 								}
 							}
 						}
 					}
+					else {
+						pPlugin->fnLog("插件检测完毕，已是最新版本");
+					}
 				}
-				else {
-					pPlugin->log("插件检测完毕，已是最新版本");
-				}
+				cJSON_Delete(pApp);
 			}
 		}
 		free(pPlugin);
+		pPlugin = NULL;
 	}
-	return S_FALSE;
+	szUpgradeHandle = NULL;
+	return S_OK;
 }
 
 /**
@@ -376,38 +416,31 @@ BOOL HttpGet(const char* url, LP_CURL_PROCESS_VAL lp) {
 	CURLcode curl_code = CURL_LAST;
 	CURL *curl = NULL;
 	BOOL ret = FALSE;
-	if (TryEnterCriticalSection(&szCriticalSection)) {
-		if ((curl = curl_easy_init()) != NULL) {
-			//AGENCY
-			if (
-				(curl_code = curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L)) == CURLE_OK &&
-				(curl_code = curl_easy_setopt(curl, CURLOPT_URL, url)) == CURLE_OK &&
-				(curl_code = curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L)) == CURLE_OK &&
-				(curl_code = curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L)) == CURLE_OK &&
-				(curl_code = curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36")) == CURLE_OK &&
-				(curl_code = curl_easy_setopt(curl, CURLOPT_WRITEDATA, lp)) == CURLE_OK &&
-				(curl_code = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, lp->process)) == CURLE_OK
-				) {
-				if ((curl_code = curl_easy_perform(curl)) == CURLE_OK) {
-					ret = TRUE;
-				}
-				else {
-					strcpy(lp->msg, curl_easy_strerror(curl_code));
-				}
+	if ((curl = curl_easy_init()) != NULL) {
+		//AGENCY
+		if (
+			(curl_code = curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L)) == CURLE_OK &&
+			(curl_code = curl_easy_setopt(curl, CURLOPT_URL, url)) == CURLE_OK &&
+			(curl_code = curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L)) == CURLE_OK &&
+			(curl_code = curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L)) == CURLE_OK &&
+			(curl_code = curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36")) == CURLE_OK &&
+			(curl_code = curl_easy_setopt(curl, CURLOPT_WRITEDATA, lp)) == CURLE_OK &&
+			(curl_code = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, lp->process)) == CURLE_OK
+			) {
+			if ((curl_code = curl_easy_perform(curl)) == CURLE_OK) {
+				ret = TRUE;
 			}
 			else {
 				strcpy(lp->msg, curl_easy_strerror(curl_code));
 			}
-			curl_easy_cleanup(curl);
 		}
 		else {
-			strcpy(lp->msg, "初始化失败");
+			strcpy(lp->msg, curl_easy_strerror(curl_code));
 		}
-		LeaveCriticalSection(&szCriticalSection);
+		curl_easy_cleanup(curl);
 	}
 	else {
-		lp->i = 0;
-		strcpy(lp->msg, "获取锁失败");
+		strcpy(lp->msg, "初始化失败");
 	}
 	return ret;
 }
@@ -463,32 +496,4 @@ BOOL ProcessEventForWindow(INT iEvent, LPVOID pParam) {
 		return TRUE;
 	}
 	return FALSE;
-}
-
-/**
-	设置
-*/
-dllexp void _stdcall IR_SetUp() {
-	if (RegisterEventProcess(ProcessEventForWindow)) {
-		PluginWinMain(szInstance, NULL, NULL, NULL);
-	}
-}
-
-/**
-	插件即将被销毁
-*/
-dllexp int _stdcall IR_DestroyPlugin() {
-	if (!szCurlGlobalClean) {
-		curl_global_cleanup();
-		szCurlGlobalClean = TRUE;
-	}
-	if (szApiInstance != NULL) {
-		Api_PluginDestory(szApiInstance);
-		szApiInstance = NULL;
-	}
-	if (!szCriticalSectionDestory) {
-		DeleteCriticalSection(&szCriticalSection);
-		szCriticalSectionDestory = TRUE;
-	}
-	return 0;
 }
