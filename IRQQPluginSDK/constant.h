@@ -57,5 +57,9 @@ const int MT_INTERCEPT = 2;//拦截：2
 const int MT_P_LOAD = 12000;//本插件载入：12000
 const int MT_P_ENABLE = 12001;//用户启用本插件：12001
 const int MT_P_DISABLE = 12002;//用户禁用本插件：12002
+const int MT_P_SELECT = 12003;//插件被选中
+
+const int MT_P_LOGIN_SUCCESS = 1101;
+
 
 

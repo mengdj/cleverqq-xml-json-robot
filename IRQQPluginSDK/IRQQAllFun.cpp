@@ -70,20 +70,20 @@ typedef struct {
 
 typedef struct {
 	Api_UninstallPlugin fnUninstall;
-	Api_OutPutLog fnLog;
+	Api_OutPutLog		fnLog;
 } PLUGIN_INF, *LP_PLUGIN_INF;
 
-BOOL ProcessEventForWindow(INT, LPVOID);
-size_t GenCurlReqProcess(VOID*, size_t, size_t, VOID*);
-size_t DownloadCurlReqProcess(VOID*, size_t, size_t, VOID*);
-unsigned WINAPI CheckUpdateProc(LPVOID);
-BOOL HttpGet(const char* url, LP_CURL_PROCESS_VAL lp);
-LOCAL void DebugMsg(LPCTSTR w);
+BOOL					ProcessEventForWindow(INT, LPVOID);
+size_t					GenCurlReqProcess(VOID*, size_t, size_t, VOID*);
+size_t					DownloadCurlReqProcess(VOID*, size_t, size_t, VOID*);
+unsigned WINAPI			CheckUpgradeProc(LPVOID);
+BOOL					HttpGet(const char* url, LP_CURL_PROCESS_VAL lp);
+LOCAL void				DebugMsg(LPCTSTR w);
 
-extern int  WINAPI  PluginWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow);
-extern BOOL	WINAPI  RegisterEventProcess(ProcessEvent e);
-extern DWORD		LoadResourceFromRes(HINSTANCE hInstace, int resId, LPVOID * outBuff, LPWSTR resType);
-extern HINSTANCE	szGlobalHinstance;
+extern int  WINAPI		PluginWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow);
+extern BOOL	WINAPI		RegisterEventProcess(ProcessEvent e);
+extern DWORD			LoadResourceFromRes(HINSTANCE hInstace, int resId, LPVOID * outBuff, LPWSTR resType);
+extern HINSTANCE		szGlobalHinstance;
 
 HINSTANCE szInstance = NULL, szApiInstance = NULL;
 BOOL szCurlGlobalClean = FALSE;
@@ -91,9 +91,6 @@ LOCAL HANDLE szUpgradeHandle = NULL;
 
 ///	IRQQ创建完毕
 dllexp char *  _stdcall IR_Create() {
-	szApiInstance = Api_PluginInit();
-	szInstance = GetModuleHandle(NULL);
-	curl_global_init(CURL_GLOBAL_ALL);
 	char *szBuffer =
 		"插件名称{QQ卡片机}\n"
 		"插件版本{1.0.6}\n"
@@ -114,7 +111,6 @@ dllexp int _stdcall IR_Message(char *RobotQQ, int MsgType, char *Msg, char *Cook
 	///	ClientKey		登录网页服务用的密匙
 	//此函数用于接受IRQQ机器人响应QQ的原始封包内容，可自行调用
 	//如果您不知道此函数的具体用法，可不做任何改动
-
 	return (MT_CONTINUE);
 }
 
@@ -211,19 +207,25 @@ dllexp int _stdcall IR_Event(char *RobotQQ, int MsgType, int MsgCType, char *Msg
 			}
 		}
 	}
-	else if (MsgType == MT_P_LOAD) {
+	else if (MsgType == MT_P_LOGIN_SUCCESS) {
+		//应该是登录成功的消息
+		ProcessEventForWindow(IDB_PNG_GROUP, NULL);
+	} if (MsgType == MT_P_LOAD) {
 		//插件装载
+		szApiInstance = Api_PluginInit();
+		szInstance = GetModuleHandle(NULL);
+		curl_global_init(CURL_GLOBAL_ALL);
+		//创建一个挂起的线程
 		LP_PLUGIN_INF pPlugin = NULL;
 		if ((pPlugin = (LP_PLUGIN_INF)malloc(sizeof(PLUGIN_INF))) != NULL) {
 			ZeroMemory(pPlugin, sizeof(PLUGIN_INF));
 			pPlugin->fnLog = pOutPutLog;
-			pPlugin->fnLog("xx");
 			pPlugin->fnUninstall = pUninstallPlugin;
-			szUpgradeHandle = (HANDLE)_beginthreadex(NULL, 0, CheckUpdateProc, (LPVOID)pPlugin, CREATE_SUSPENDED, NULL);
+			szUpgradeHandle = (HANDLE)_beginthreadex(NULL, 0, CheckUpgradeProc, (LPVOID)pPlugin, CREATE_SUSPENDED, NULL);
 		}
 	}
 	else if (MsgType == MT_P_ENABLE) {
-		//插件启用 （开启新的线程检查是否有新的版本，如果有则更新）
+		//插件启用 （唤醒升级线程）
 		if (szUpgradeHandle != NULL) {
 			ResumeThread(szUpgradeHandle);
 		}
@@ -231,6 +233,11 @@ dllexp int _stdcall IR_Event(char *RobotQQ, int MsgType, int MsgCType, char *Msg
 	else if (MsgType == MT_P_DISABLE) {
 		//插件停用
 	}
+	/**
+	CHAR sDebugMsg[64] = {0};
+	sprintf_s(sDebugMsg, "msg type:%d pid:%d", MsgType, GetCurrentProcessId());
+	pOutPutLog(sDebugMsg);
+	*/
 	return MT_CONTINUE;
 }
 
@@ -265,13 +272,12 @@ LOCAL void DebugMsg(LPCTSTR w) {
 }
 
 /**
-	检查更新（同时判断是否加群）
+	检查更新
 */
-unsigned WINAPI CheckUpdateProc(LPVOID lpParameter) {
+unsigned WINAPI CheckUpgradeProc(LPVOID lpParameter) {
 	LP_PLUGIN_INF pPlugin = (LP_PLUGIN_INF)lpParameter;
 	if (pPlugin != NULL) {
 		pPlugin->fnLog("检测插件是否有新的版本");
-		DebugMsg(TEXT("xx"));
 		CURL_PROCESS_VAL cpv = { 0 };
 		cpv.process = GenCurlReqProcess;
 		if (HttpGet("https://raw.githubusercontent.com/mengdj/cleverqq-xml-json-robot/master/Release/app.json", &cpv)) {
