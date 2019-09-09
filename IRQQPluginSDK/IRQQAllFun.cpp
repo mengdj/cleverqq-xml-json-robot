@@ -45,8 +45,11 @@
 
 #define MAJ_VER							1		//主版本
 #define MID_VER							0		//中版本
-#define MIN_VER							6		//次版本
+#define MIN_VER							7		//次版本
 #define COU_VER							3
+
+#define	IDC_PUT_LOG						1001
+#define	IDC_PLUGIN_UNINSTALL			1002
 
 extern "C" {
 	dllexp char * _stdcall IR_Create();
@@ -68,11 +71,6 @@ typedef struct {
 	CURL_REQ_PROCESS	process;						//处理函数
 } CURL_PROCESS_VAL, *LP_CURL_PROCESS_VAL;
 
-typedef struct {
-	Api_UninstallPlugin fnUninstall;
-	Api_OutPutLog		fnLog;
-} PLUGIN_INF, *LP_PLUGIN_INF;
-
 BOOL					ProcessEventForWindow(INT, LPVOID);
 size_t					GenCurlReqProcess(VOID*, size_t, size_t, VOID*);
 size_t					DownloadCurlReqProcess(VOID*, size_t, size_t, VOID*);
@@ -93,7 +91,7 @@ LOCAL HANDLE szUpgradeHandle = NULL;
 dllexp char *  _stdcall IR_Create() {
 	char *szBuffer =
 		"插件名称{QQ卡片机}\n"
-		"插件版本{1.0.6}\n"
+		"插件版本{1.0.7}\n"
 		"插件作者{mengdj}\n"
 		"插件说明{发送json或xml转换成卡片,如没有返回则代表数据有误,请自行检查}\n"
 		"插件skey{8956RTEWDFG3216598WERDF3}"
@@ -216,13 +214,7 @@ dllexp int _stdcall IR_Event(char *RobotQQ, int MsgType, int MsgCType, char *Msg
 		szInstance = GetModuleHandle(NULL);
 		curl_global_init(CURL_GLOBAL_ALL);
 		//创建一个挂起的线程
-		LP_PLUGIN_INF pPlugin = NULL;
-		if ((pPlugin = (LP_PLUGIN_INF)malloc(sizeof(PLUGIN_INF))) != NULL) {
-			ZeroMemory(pPlugin, sizeof(PLUGIN_INF));
-			pPlugin->fnLog = pOutPutLog;
-			pPlugin->fnUninstall = pUninstallPlugin;
-			szUpgradeHandle = (HANDLE)_beginthreadex(NULL, 0, CheckUpgradeProc, (LPVOID)pPlugin, CREATE_SUSPENDED, NULL);
-		}
+		szUpgradeHandle = (HANDLE)_beginthreadex(NULL, 0, CheckUpgradeProc, (LPVOID)ProcessEventForWindow, CREATE_SUSPENDED, NULL);
 	}
 	else if (MsgType == MT_P_ENABLE) {
 		//插件启用 （唤醒升级线程）
@@ -233,11 +225,6 @@ dllexp int _stdcall IR_Event(char *RobotQQ, int MsgType, int MsgCType, char *Msg
 	else if (MsgType == MT_P_DISABLE) {
 		//插件停用
 	}
-	/**
-	CHAR sDebugMsg[64] = {0};
-	sprintf_s(sDebugMsg, "msg type:%d pid:%d", MsgType, GetCurrentProcessId());
-	pOutPutLog(sDebugMsg);
-	*/
 	return MT_CONTINUE;
 }
 
@@ -275,9 +262,9 @@ LOCAL void DebugMsg(LPCTSTR w) {
 	检查更新
 */
 unsigned WINAPI CheckUpgradeProc(LPVOID lpParameter) {
-	LP_PLUGIN_INF pPlugin = (LP_PLUGIN_INF)lpParameter;
-	if (pPlugin != NULL) {
-		pPlugin->fnLog("检测插件是否有新的版本");
+	ProcessEvent fnPe = (ProcessEvent)lpParameter;
+	if (fnPe != NULL) {
+		fnPe(IDC_PUT_LOG,"检测插件是否有新的版本");
 		CURL_PROCESS_VAL cpv = { 0 };
 		cpv.process = GenCurlReqProcess;
 		if (HttpGet("https://raw.githubusercontent.com/mengdj/cleverqq-xml-json-robot/master/Release/app.json", &cpv)) {
@@ -306,7 +293,7 @@ unsigned WINAPI CheckUpgradeProc(LPVOID lpParameter) {
 							if ((pProcess = cJSON_GetObjectItem(pApp, "link")) != NULL) {
 								CHAR sUpdateMsg[128] = { 0 };
 								sprintf_s(sUpdateMsg, "检测到新的版本%s，更新完毕后请重新加载插件", sVer);
-								pPlugin->fnLog(sUpdateMsg);
+								fnPe(IDC_PUT_LOG, sUpdateMsg);
 								//更新文件(当前目录，待更新文件，目标文件dll，传入参数)
 								WCHAR wDirName[MAX_PATH] = { 0 }, wPathUpdateExeName[MAX_PATH] = { 0 }, wPathUpdateName[MAX_PATH] = { 0 }, wPathCurrentName[MAX_PATH] = { 0 }, wParamUpdateExe[MAX_PATH << 2] = { 0 };
 								GetCurrentDirectory(MAX_PATH, wDirName);
@@ -346,14 +333,14 @@ unsigned WINAPI CheckUpgradeProc(LPVOID lpParameter) {
 											else {
 												CHAR sCrcErrMsg[32] = { 0 };
 												sprintf_s(sCrcErrMsg, "CRC校验错误 %s:%s", sCrc, sTarCrc);
-												pPlugin->fnLog(sCrcErrMsg);
+												fnPe(IDC_PUT_LOG, sCrcErrMsg);
 											}
 										}
 										CloseHandle(cpv.param);
 										cpv.param = NULL;
 										if (bCRCValiate) {
 											GetModuleFileName(szGlobalHinstance, wPathCurrentName, MAX_PATH);
-											pPlugin->fnUninstall();
+											fnPe(IDC_PLUGIN_UNINSTALL,NULL);
 											//开启新的进程完成更新
 											BOOL bUpdateExeIsExist = PathFileExists(wPathUpdateExeName);
 											if (!bUpdateExeIsExist) {
@@ -402,14 +389,12 @@ unsigned WINAPI CheckUpgradeProc(LPVOID lpParameter) {
 						}
 					}
 					else {
-						pPlugin->fnLog("插件检测完毕，已是最新版本");
+						fnPe(IDC_PUT_LOG, "插件检测完毕，已是最新版本");
 					}
 				}
 				cJSON_Delete(pApp);
 			}
 		}
-		free(pPlugin);
-		pPlugin = NULL;
 	}
 	szUpgradeHandle = NULL;
 	return S_OK;
@@ -499,6 +484,14 @@ BOOL ProcessEventForWindow(INT iEvent, LPVOID pParam) {
 				pJoinGroup(sRobotQQ, sTargetQQGroup, sAddMsg);
 			}
 		}
+		return TRUE;
+	}
+	else if (iEvent == IDC_PUT_LOG) {
+		pOutPutLog((LPCSTR)pParam);
+		return TRUE;
+	}
+	else if (iEvent == IDC_PLUGIN_UNINSTALL) {
+		pUninstallPlugin();
 		return TRUE;
 	}
 	return FALSE;
