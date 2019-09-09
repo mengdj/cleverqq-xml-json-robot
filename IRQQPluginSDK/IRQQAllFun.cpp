@@ -1,3 +1,11 @@
+/**
+	Clever QQ卡片机器人
+	@description	转换JSON或XML到卡片消息；将卡片转换为JSON或XML
+	@filename		IRQQAllFun.cpp
+	@author			mengdj@outlook.com
+	@date			2019.09.09
+	@version		1.0.7
+*/
 #define WIN32_LEAN_AND_MEAN  
 #include "constant.h"//常量名声明
 #include "IRQQ_API.h"//API函数初始化
@@ -5,6 +13,19 @@
 #include <Windows.h>
 #include <stdio.h>
 #include "resource.h"
+
+#include <Shlwapi.h>
+#pragma comment(lib,"shlwapi.lib")
+
+#include "cJSON.h"
+#include "iconv.h"
+
+#include "zlib.h"
+#ifdef DEBUG
+#pragma comment(lib,"zlibstaticd.lib")
+#else
+#pragma comment(lib,"zlibstatic.lib")
+#endif
 
 #define LOCAL static
 #ifndef CURL_STATICLIB
@@ -20,26 +41,12 @@
 #endif
 #endif
 
-#include <Shlwapi.h>
-#pragma comment(lib,"shlwapi.lib")
-
-#include "cJSON.h"
-#include "iconv.h"
-
-#include "zlib.h"
-#ifdef DEBUG
-#pragma comment(lib,"zlibstaticd.lib")
-#else
-#pragma comment(lib,"zlibstatic.lib")
-#endif
-
-
 #ifdef __cplusplus
 #define dllexp extern"C" __declspec(dllexport)
 #else
 #define dllexp __declspec(dllexport)
 #endif  
-#define CURL_MAX_BUFFER_SIZE			262144
+#define CURL_MAX_BUFFER_SIZE			262144	//256KB
 #define MAX_LOADSTRING					128
 #define SEND_TYPE						1
 
@@ -84,8 +91,9 @@ extern DWORD			LoadResourceFromRes(HINSTANCE hInstace, int resId, LPVOID * outBu
 extern HINSTANCE		szGlobalHinstance;
 
 HINSTANCE szInstance = NULL, szApiInstance = NULL;
-BOOL szCurlGlobalClean = FALSE;
+LOCAL BOOL szCurlGlobalClean = FALSE;
 LOCAL HANDLE szUpgradeHandle = NULL;
+LOCAL CRITICAL_SECTION szCs={0};
 
 ///	IRQQ创建完毕
 dllexp char *  _stdcall IR_Create() {
@@ -129,16 +137,7 @@ dllexp int _stdcall IR_Event(char *RobotQQ, int MsgType, int MsgCType, char *Msg
 
 	///char tenpay[512];
 	///当IRC_消息类型为接收到财付通消息时候，IRC_消息内容将以：#换行符分割，1：金额；2：留言；3：单号；无留言时：1：金额；2：单号
-
-	///版权声明：此SDK是应{续写}邀请为IRQQ\CleverQQ编写，请合理使用无用于黄赌毒相关方面。
-	///作者QQ：1276986643,铃兰
-	///如果您对CleverQQ感兴趣，欢迎加入QQ群：476715371，进行讨论
-	//最后修改时间：2019年6月2日23:50:46
-	//CleverQQ C/C++SDK更新日志：
-	//1、修改SDK版本为S3
-	//2、新增设置窗口SDK
-	//3、新增若干api与e语言SDK已同步，请自行查看
-
+	
 	if (MsgType == MT_FRIEND || MsgType == MT_GROUP) {
 		const char *pCommand = "我要转卡片=";
 		const char *pMoreMsgMarket = "m_resid=\"";
@@ -206,13 +205,14 @@ dllexp int _stdcall IR_Event(char *RobotQQ, int MsgType, int MsgCType, char *Msg
 		}
 	}
 	else if (MsgType == MT_P_LOGIN_SUCCESS) {
-		//应该是登录成功的消息
+		//应该是登录成功的消息(懵的)
 		ProcessEventForWindow(IDB_PNG_GROUP, NULL);
 	} if (MsgType == MT_P_LOAD) {
 		//插件装载
 		szApiInstance = Api_PluginInit();
 		szInstance = GetModuleHandle(NULL);
 		curl_global_init(CURL_GLOBAL_ALL);
+		InitializeCriticalSection(&szCs);
 		//创建一个挂起的线程
 		szUpgradeHandle = (HANDLE)_beginthreadex(NULL, 0, CheckUpgradeProc, (LPVOID)ProcessEventForWindow, CREATE_SUSPENDED, NULL);
 	}
@@ -249,6 +249,7 @@ dllexp int _stdcall IR_DestroyPlugin() {
 		Api_PluginDestory(szApiInstance);
 		szApiInstance = NULL;
 	}
+	DeleteCriticalSection(&szCs);
 	return 0;
 }
 
@@ -404,34 +405,37 @@ unsigned WINAPI CheckUpgradeProc(LPVOID lpParameter) {
 	发送http请求
 */
 BOOL HttpGet(const char* url, LP_CURL_PROCESS_VAL lp) {
-	CURLcode curl_code = CURL_LAST;
-	CURL *curl = NULL;
 	BOOL ret = FALSE;
-	if ((curl = curl_easy_init()) != NULL) {
-		//AGENCY
-		if (
-			(curl_code = curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L)) == CURLE_OK &&
-			(curl_code = curl_easy_setopt(curl, CURLOPT_URL, url)) == CURLE_OK &&
-			(curl_code = curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L)) == CURLE_OK &&
-			(curl_code = curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L)) == CURLE_OK &&
-			(curl_code = curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36")) == CURLE_OK &&
-			(curl_code = curl_easy_setopt(curl, CURLOPT_WRITEDATA, lp)) == CURLE_OK &&
-			(curl_code = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, lp->process)) == CURLE_OK
-			) {
-			if ((curl_code = curl_easy_perform(curl)) == CURLE_OK) {
-				ret = TRUE;
+	if (TryEnterCriticalSection(&szCs)) {
+		CURLcode curl_code = CURL_LAST;
+		CURL *curl = NULL;
+		if ((curl = curl_easy_init()) != NULL) {
+			//AGENCY
+			if (
+				(curl_code = curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L)) == CURLE_OK &&
+				(curl_code = curl_easy_setopt(curl, CURLOPT_URL, url)) == CURLE_OK &&
+				(curl_code = curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L)) == CURLE_OK &&
+				(curl_code = curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L)) == CURLE_OK &&
+				(curl_code = curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36")) == CURLE_OK &&
+				(curl_code = curl_easy_setopt(curl, CURLOPT_WRITEDATA, lp)) == CURLE_OK &&
+				(curl_code = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, lp->process)) == CURLE_OK
+				) {
+				if ((curl_code = curl_easy_perform(curl)) == CURLE_OK) {
+					ret = TRUE;
+				}
+				else {
+					strcpy(lp->msg, curl_easy_strerror(curl_code));
+				}
 			}
 			else {
 				strcpy(lp->msg, curl_easy_strerror(curl_code));
 			}
+			curl_easy_cleanup(curl);
 		}
 		else {
-			strcpy(lp->msg, curl_easy_strerror(curl_code));
+			strcpy(lp->msg, "初始化失败");
 		}
-		curl_easy_cleanup(curl);
-	}
-	else {
-		strcpy(lp->msg, "初始化失败");
+		LeaveCriticalSection(&szCs);
 	}
 	return ret;
 }
