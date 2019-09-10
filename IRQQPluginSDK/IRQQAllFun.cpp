@@ -421,6 +421,7 @@ BOOL HttpGet(const char* url, LP_CURL_PROCESS_VAL lp) {
 				(curl_code = curl_easy_setopt(curl, CURLOPT_URL, url)) == CURLE_OK &&
 				(curl_code = curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L)) == CURLE_OK &&
 				(curl_code = curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L)) == CURLE_OK &&
+				(curl_code = curl_easy_setopt(curl, CURLOPT_REFERER, "https://github.com/mengdj")) == CURLE_OK &&
 				(curl_code = curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36")) == CURLE_OK &&
 				(curl_code = curl_easy_setopt(curl, CURLOPT_WRITEDATA, lp)) == CURLE_OK &&
 				(curl_code = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, lp->process)) == CURLE_OK
