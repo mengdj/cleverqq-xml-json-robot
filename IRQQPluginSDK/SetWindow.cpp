@@ -78,7 +78,7 @@ LRESULT CALLBACK PluginWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 	LPVOID resBuff = NULL;
 	DWORD resSize = 0;
 	static POINT point = { 0 };
-	static INT iRes[3] = { IDB_PNG_CLOSE ,IDB_PNG_DONATE,IDB_PNG_GROUP };
+	static INT iRes[3] = { IDB_PNG_CLOSE ,IDB_PNG_DONATE,IDB_PNG_ZAN };
 	static COLORREF cHoverColor = RGB(0xC0, 0xC0, 0xC0);
 	static WCHAR *wAppTitle = TEXT("QQ卡片机");
 	static SIZE appTitleSize = { 0 };
@@ -204,7 +204,7 @@ LRESULT CALLBACK PluginWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 			PostMessage(hwnd, WM_CLOSE, (WPARAM)NULL, (LPARAM)NULL);
 		}
 		else if (PtInRect(&szDiyRect, point) == TRUE&&szEvent) {
-			return szEvent(IDB_PNG_GROUP, NULL);
+			return szEvent(IDB_PNG_ZAN, NULL);
 		}
 		break;
 	case WM_MOUSEMOVE:
@@ -230,7 +230,7 @@ LRESULT CALLBACK PluginWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 		//diy
 		if (PtInRect(&szDiyRect, point) == TRUE) {
 			if (!szStdImage[2].hover) {
-				UpdateTooltipEx(szHwnd[0], hwnd, &szDiyRect, TEXT("加群或Q1824854886定制插件"));
+				UpdateTooltipEx(szHwnd[0], hwnd, &szDiyRect, TEXT("点赞（加Q1824854886定制插件）"));
 				szStdImage[2].hover = TRUE;
 				InvalidateRect(hwnd, &szDiyRect, TRUE);
 			}

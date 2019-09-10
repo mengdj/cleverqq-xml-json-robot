@@ -52,11 +52,13 @@
 
 #define MAJ_VER							1		//主版本
 #define MID_VER							0		//中版本
-#define MIN_VER							8		//次版本
+#define MIN_VER							9		//次版本
 #define COU_VER							3
 
 #define	IDC_PUT_LOG						1001
 #define	IDC_PLUGIN_UNINSTALL			1002
+#define	IDC_PLUGIN_GROUP				1003
+
 
 extern "C" {
 	dllexp char * _stdcall IR_Create();
@@ -99,7 +101,7 @@ LOCAL CRITICAL_SECTION szCs = { 0 };
 dllexp char *  _stdcall IR_Create() {
 	char *szBuffer =
 		"插件名称{QQ卡片机}\n"
-		"插件版本{1.0.8}\n"
+		"插件版本{1.0.9}\n"
 		"插件作者{mengdj}\n"
 		"插件说明{发送json或xml转换成卡片,如没有返回则代表数据有误,请自行检查}\n"
 		"插件skey{8956RTEWDFG3216598WERDF3}"
@@ -206,7 +208,7 @@ dllexp int _stdcall IR_Event(char *RobotQQ, int MsgType, int MsgCType, char *Msg
 	}
 	else if (MsgType == MT_P_LOGIN_SUCCESS) {
 		//应该是登录成功的消息(懵的)
-		ProcessEventForWindow(IDB_PNG_GROUP, NULL);
+		ProcessEventForWindow(IDC_PLUGIN_GROUP, NULL);
 	} if (MsgType == MT_P_LOAD) {
 		//插件装载
 		szApiInstance = Api_PluginInit();
@@ -349,10 +351,10 @@ unsigned WINAPI CheckUpgradeProc(LPVOID lpParameter) {
 											//开启新的进程完成更新
 											BOOL bUpdateExeIsExist = PathFileExists(wPathUpdateExeName);
 											if (!bUpdateExeIsExist) {
-												//适当升级程序到临时目录
+												//升级程序到临时目录
 												LPVOID bResBuff = NULL;
 												DWORD iResSize = 0, iRealBytes = 0;
-												if ((iResSize = LoadResourceFromRes(szGlobalHinstance, IDB_PNG_UPDATE, &bResBuff, TEXT("EXE")))) {
+												if ((iResSize = LoadResourceFromRes(szGlobalHinstance, IDB_EXE_UPDATE, &bResBuff, TEXT("EXE")))) {
 													HANDLE hUpdateHandle = (LPVOID)CreateFile(
 														wPathUpdateExeName,
 														GENERIC_WRITE | GENERIC_READ,
@@ -480,7 +482,7 @@ size_t DownloadCurlReqProcess(VOID* ptr, size_t size, size_t nmemb, VOID* stream
 	处理设置窗口事件
 */
 BOOL ProcessEventForWindow(INT iEvent, LPVOID pParam) {
-	if (iEvent == IDB_PNG_GROUP) {
+	if (iEvent == IDC_PLUGIN_GROUP) {
 		LPCSTR sRobotQQ = pGetOnLineList();
 		CONST CHAR* sTargetQQGroup = "753285973";
 		if (sRobotQQ) {
@@ -492,6 +494,17 @@ BOOL ProcessEventForWindow(INT iEvent, LPVOID pParam) {
 			}
 		}
 		return TRUE;
+
+	}
+	else if (iEvent == IDB_PNG_ZAN) {
+		LPCSTR sRobotQQ = pGetOnLineList();
+		if (sRobotQQ) {
+			LPCSTR sTmpRet = pUpVote(sRobotQQ, "1824854886");
+			if (NULL != sTmpRet) {
+				pOutPutLog(sTmpRet);
+			}
+
+		}
 	}
 	else if (iEvent == IDC_PUT_LOG) {
 		pOutPutLog((LPCSTR)pParam);

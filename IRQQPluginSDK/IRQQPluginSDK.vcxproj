@@ -184,6 +184,7 @@
     <Image Include="res\diy_normal.png" />
     <Image Include="res\donate.png" />
     <Image Include="res\group_normal.png" />
+    <Image Include="res\zan_normal.png" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
