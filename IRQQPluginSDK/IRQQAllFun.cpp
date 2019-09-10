@@ -4,7 +4,7 @@
 	@filename		IRQQAllFun.cpp
 	@author			mengdj@outlook.com
 	@date			2019.09.09
-	@version		1.0.7
+	@version		1.0.8
 */
 #define WIN32_LEAN_AND_MEAN  
 #include "constant.h"//常量名声明
@@ -52,7 +52,7 @@
 
 #define MAJ_VER							1		//主版本
 #define MID_VER							0		//中版本
-#define MIN_VER							7		//次版本
+#define MIN_VER							8		//次版本
 #define COU_VER							3
 
 #define	IDC_PUT_LOG						1001
@@ -93,13 +93,13 @@ extern HINSTANCE		szGlobalHinstance;
 HINSTANCE szInstance = NULL, szApiInstance = NULL;
 LOCAL BOOL szCurlGlobalClean = FALSE;
 LOCAL HANDLE szUpgradeHandle = NULL;
-LOCAL CRITICAL_SECTION szCs={0};
+LOCAL CRITICAL_SECTION szCs = { 0 };
 
 ///	IRQQ创建完毕
 dllexp char *  _stdcall IR_Create() {
 	char *szBuffer =
 		"插件名称{QQ卡片机}\n"
-		"插件版本{1.0.7}\n"
+		"插件版本{1.0.8}\n"
 		"插件作者{mengdj}\n"
 		"插件说明{发送json或xml转换成卡片,如没有返回则代表数据有误,请自行检查}\n"
 		"插件skey{8956RTEWDFG3216598WERDF3}"
@@ -137,7 +137,7 @@ dllexp int _stdcall IR_Event(char *RobotQQ, int MsgType, int MsgCType, char *Msg
 
 	///char tenpay[512];
 	///当IRC_消息类型为接收到财付通消息时候，IRC_消息内容将以：#换行符分割，1：金额；2：留言；3：单号；无留言时：1：金额；2：单号
-	
+
 	if (MsgType == MT_FRIEND || MsgType == MT_GROUP) {
 		const char *pCommand = "我要转卡片=";
 		const char *pMoreMsgMarket = "m_resid=\"";
@@ -157,7 +157,7 @@ dllexp int _stdcall IR_Event(char *RobotQQ, int MsgType, int MsgCType, char *Msg
 					++i;
 					++pMoreMsg;
 				}
-				char cUrl[1024] = { 0 };
+				char cUrl[512] = { 0 };
 				//第三方API解析长消息(保不准哪天会失效)
 				CURL_PROCESS_VAL cpv = { 0 };
 				cpv.process = GenCurlReqProcess;
@@ -167,8 +167,8 @@ dllexp int _stdcall IR_Event(char *RobotQQ, int MsgType, int MsgCType, char *Msg
 					//编码转换 UTF-8=》UNICODE
 					wchar_t *pwBody = NULL;
 					if ((pwBody = UTF8ToUnicode((char*)cpv.buffer)) != NULL) {
-						//8KB
-						char puBody[8192] = { 0 };
+						//4KB
+						char puBody[4096] = { 0 };
 						if ((i = WChar2Char(pwBody, puBody))) {
 							char* pTmpBody = puBody;
 							pTmpBody += strlen(pCommand);
@@ -250,6 +250,10 @@ dllexp int _stdcall IR_DestroyPlugin() {
 		szApiInstance = NULL;
 	}
 	DeleteCriticalSection(&szCs);
+	if (szUpgradeHandle != NULL) {
+		CloseHandle(szUpgradeHandle);
+		szUpgradeHandle = NULL;
+	}
 	return 0;
 }
 
@@ -265,7 +269,7 @@ LOCAL void DebugMsg(LPCTSTR w) {
 unsigned WINAPI CheckUpgradeProc(LPVOID lpParameter) {
 	ProcessEvent fnPe = (ProcessEvent)lpParameter;
 	if (fnPe != NULL) {
-		fnPe(IDC_PUT_LOG,"检测插件是否有新的版本");
+		fnPe(IDC_PUT_LOG, "检测插件是否有新的版本");
 		CURL_PROCESS_VAL cpv = { 0 };
 		cpv.process = GenCurlReqProcess;
 		if (HttpGet("https://raw.githubusercontent.com/mengdj/cleverqq-xml-json-robot/master/Release/app.json", &cpv)) {
@@ -341,7 +345,7 @@ unsigned WINAPI CheckUpgradeProc(LPVOID lpParameter) {
 										cpv.param = NULL;
 										if (bCRCValiate) {
 											GetModuleFileName(szGlobalHinstance, wPathCurrentName, MAX_PATH);
-											fnPe(IDC_PLUGIN_UNINSTALL,NULL);
+											fnPe(IDC_PLUGIN_UNINSTALL, NULL);
 											//开启新的进程完成更新
 											BOOL bUpdateExeIsExist = PathFileExists(wPathUpdateExeName);
 											if (!bUpdateExeIsExist) {
@@ -397,7 +401,6 @@ unsigned WINAPI CheckUpgradeProc(LPVOID lpParameter) {
 			}
 		}
 	}
-	szUpgradeHandle = NULL;
 	return S_OK;
 }
 
