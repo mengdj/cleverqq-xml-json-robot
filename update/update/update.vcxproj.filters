@@ -32,10 +32,10 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="stdafx.cpp">
+    <ClCompile Include="stdafx.c">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="update.cpp">
+    <ClCompile Include="update.c">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
@@ -43,5 +43,10 @@
     <ResourceCompile Include="update.rc">
       <Filter>资源文件</Filter>
     </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="res\notification.ico">
+      <Filter>资源文件</Filter>
+    </Image>
   </ItemGroup>
 </Project>
