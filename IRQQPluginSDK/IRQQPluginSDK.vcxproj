@@ -80,7 +80,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(IncludePath)</IncludePath>
+    <IncludePath>F:\孟德军\2019\2019.09.09\clever qq\trunk\IRQQPluginSDK\DuiLib;$(IncludePath)</IncludePath>
     <TargetName>$(ProjectName).IR</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -124,7 +124,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;IRQQPLUGINSDK_EXPORTS;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;IRQQPLUGINSDK_EXPORTS;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS;UILIB_STATIC</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
     </ClCompile>
@@ -162,19 +162,23 @@
     <ClInclude Include="iconv.h" />
     <ClInclude Include="IRQQ_API.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="SetWindowWnd.h" />
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="util.h" />
     <ClInclude Include="zlib.h" />
+    <ClInclude Include="标头.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="cJSON.c" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="IRQQAllFun.cpp" />
-    <ClCompile Include="SetWindow.cpp" />
+    <ClCompile Include="SetWindowWnd.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="exe1.bin" />
     <None Include="res\update.exe" />
     <None Include="Source.def" />
+    <None Include="xml1.bin" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="IRQQPluginSDK.rc" />
@@ -185,6 +189,9 @@
     <Image Include="res\donate.png" />
     <Image Include="res\group_normal.png" />
     <Image Include="res\zan_normal.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Xml Include="setting.xml" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<Window size="460,300">
+    <VerticalLayout name="MAIN" width="589" height="373" bkcolor="#1E1E1E00">
+        <HorizontalLayout name="TOP" height="30">
+            <VerticalLayout height="30">
+                <Label name="LABEL_TITLE" float="true" pos="0,0,0,0" width="64" height="32" textcolor="#FF000000" disabledtextcolor="#FFA7A6AA" />
+            </VerticalLayout>
+            <VerticalLayout width="84" height="30">
+                <Button name="BTN_ZAN" float="true" pos="0,0,0,0" width="42" height="30" textcolor="#FF000000" disabledtextcolor="#FFA7A6AA" align="center" />
+                <Button name="BTN_CLOSE" float="true" pos="0,0,0,0" width="84" height="30" textcolor="#FF000000" disabledtextcolor="#FFA7A6AA" align="center" />
+            </VerticalLayout>
+        </HorizontalLayout>
+        <HorizontalLayout name="ADV" width="460" height="200" />
+        <HorizontalLayout name="ACT" />
+    </VerticalLayout>
+</Window>

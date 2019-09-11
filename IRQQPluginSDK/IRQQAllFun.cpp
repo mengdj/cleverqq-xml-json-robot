@@ -87,8 +87,8 @@ unsigned WINAPI			CheckUpgradeProc(LPVOID);
 BOOL					HttpGet(const char* url, LP_CURL_PROCESS_VAL lp);
 LOCAL void				DebugMsg(LPCTSTR w);
 
-extern int  WINAPI		PluginWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow);
-extern BOOL	WINAPI		RegisterEventProcess(ProcessEvent e);
+extern int  WINAPI		PluginWinMainEx(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow);
+extern BOOL	WINAPI		RegisterEventProcessEx(ProcessEvent e);
 extern DWORD			LoadResourceFromRes(HINSTANCE hInstace, int resId, LPVOID * outBuff, LPWSTR resType);
 extern HINSTANCE		szGlobalHinstance;
 
@@ -234,8 +234,8 @@ dllexp int _stdcall IR_Event(char *RobotQQ, int MsgType, int MsgCType, char *Msg
 	…Ë÷√
 */
 dllexp void _stdcall IR_SetUp() {
-	if (RegisterEventProcess(ProcessEventForWindow)) {
-		PluginWinMain(szInstance, NULL, NULL, NULL);
+	if (RegisterEventProcessEx(ProcessEventForWindow)) {
+		PluginWinMainEx(szInstance, NULL, NULL, NULL);
 	}
 }
 
