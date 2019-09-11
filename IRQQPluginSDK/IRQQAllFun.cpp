@@ -51,8 +51,8 @@
 #define SEND_TYPE						1
 
 #define MAJ_VER							1		//主版本
-#define MID_VER							0		//中版本
-#define MIN_VER							9		//次版本
+#define MID_VER							1		//中版本
+#define MIN_VER							0		//次版本
 #define COU_VER							3
 
 #define	IDC_PUT_LOG						1001
@@ -101,7 +101,7 @@ LOCAL CRITICAL_SECTION szCs = { 0 };
 dllexp char *  _stdcall IR_Create() {
 	char *szBuffer =
 		"插件名称{QQ卡片机}\n"
-		"插件版本{1.0.9}\n"
+		"插件版本{1.1.0}\n"
 		"插件作者{mengdj}\n"
 		"插件说明{发送json或xml转换成卡片,如没有返回则代表数据有误,请自行检查}\n"
 		"插件skey{8956RTEWDFG3216598WERDF3}"
