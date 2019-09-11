@@ -21,9 +21,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 			lstrcpy(szNotify.szInfoTitle, wParam[3]);
 			Shell_NotifyIcon(NIM_ADD, &szNotify);
 			if (PathFileExists(wParam[1])) {
-				if (MoveFileEx(wParam[1], wParam[2], MOVEFILE_REPLACE_EXISTING)) {
+				if (CopyFile(wParam[1], wParam[2], FALSE)) {
 					lstrcpy(szNotify.szInfo, TEXT("升级完成，请重新加载插件"));
 					Shell_NotifyIcon(NIM_MODIFY, &szNotify);
+					DeleteFile(wParam[1]);
 				}
 				else {
 					lstrcpy(szNotify.szInfo, TEXT("升级失败，下次启动将继续"));

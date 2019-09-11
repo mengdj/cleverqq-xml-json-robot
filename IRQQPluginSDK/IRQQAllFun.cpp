@@ -52,7 +52,7 @@
 
 #define MAJ_VER							1		//主版本
 #define MID_VER							1		//中版本
-#define MIN_VER							0		//次版本
+#define MIN_VER							1		//次版本
 #define COU_VER							3
 
 #define	IDC_PUT_LOG						1001
@@ -101,7 +101,7 @@ LOCAL CRITICAL_SECTION szCs = { 0 };
 dllexp char *  _stdcall IR_Create() {
 	char *szBuffer =
 		"插件名称{QQ卡片机}\n"
-		"插件版本{1.1.0}\n"
+		"插件版本{1.1.1}\n"
 		"插件作者{mengdj}\n"
 		"插件说明{发送json或xml转换成卡片,如没有返回则代表数据有误,请自行检查}\n"
 		"插件skey{8956RTEWDFG3216598WERDF3}"
@@ -169,8 +169,8 @@ dllexp int _stdcall IR_Event(char *RobotQQ, int MsgType, int MsgCType, char *Msg
 					//编码转换 UTF-8=》UNICODE
 					wchar_t *pwBody = NULL;
 					if ((pwBody = UTF8ToUnicode((char*)cpv.buffer)) != NULL) {
-						//4KB
-						char puBody[4096] = { 0 };
+						//2KB
+						char puBody[2048] = { 0 };
 						if ((i = WChar2Char(pwBody, puBody))) {
 							char* pTmpBody = puBody;
 							pTmpBody += strlen(pCommand);
@@ -347,7 +347,6 @@ unsigned WINAPI CheckUpgradeProc(LPVOID lpParameter) {
 										cpv.param = NULL;
 										if (bCRCValiate) {
 											GetModuleFileName(szGlobalHinstance, wPathCurrentName, MAX_PATH);
-											fnPe(IDC_PLUGIN_UNINSTALL, NULL);
 											//开启新的进程完成更新
 											BOOL bUpdateExeIsExist = PathFileExists(wPathUpdateExeName);
 											if (!bUpdateExeIsExist) {
@@ -377,12 +376,16 @@ unsigned WINAPI CheckUpgradeProc(LPVOID lpParameter) {
 											}
 											if (bUpdateExeIsExist) {
 												//开启新的进程更新dll
+												fnPe(IDC_PLUGIN_UNINSTALL, NULL);
 												STARTUPINFO si = { 0 };
 												PROCESS_INFORMATION pi = { 0 };
 												swprintf_s(wParamUpdateExe, MAX_PATH << 2, TEXT("%s %s %s %s"), wPathUpdateExeName, wPathUpdateName, wPathCurrentName, TEXT("QQ卡片机"));
 												if (!CreateProcess(NULL, wParamUpdateExe, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
 													//失败，略
 												}
+											}
+											else {
+												fnPe(IDC_PUT_LOG, "缺少升级程序，请联系Q1824854886");
 											}
 										}
 									}
