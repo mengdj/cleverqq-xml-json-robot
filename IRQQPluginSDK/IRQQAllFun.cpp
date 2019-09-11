@@ -379,7 +379,7 @@ unsigned WINAPI CheckUpgradeProc(LPVOID lpParameter) {
 												//开启新的进程更新dll
 												STARTUPINFO si = { 0 };
 												PROCESS_INFORMATION pi = { 0 };
-												swprintf_s(wParamUpdateExe, MAX_PATH << 2, TEXT("%s %s %s"), wPathUpdateExeName, wPathUpdateName, wPathCurrentName);
+												swprintf_s(wParamUpdateExe, MAX_PATH << 2, TEXT("%s %s %s %s"), wPathUpdateExeName, wPathUpdateName, wPathCurrentName,TEXT("QQ卡片机"));
 												if (!CreateProcess(NULL, wParamUpdateExe, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
 													//失败，略
 												}
