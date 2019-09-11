@@ -162,36 +162,27 @@
     <ClInclude Include="iconv.h" />
     <ClInclude Include="IRQQ_API.h" />
     <ClInclude Include="resource.h" />
-    <ClInclude Include="SetWindowWnd.h" />
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="util.h" />
     <ClInclude Include="zlib.h" />
-    <ClInclude Include="标头.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="cJSON.c" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="IRQQAllFun.cpp" />
-    <ClCompile Include="SetWindowWnd.cpp" />
+    <ClCompile Include="SetWindow.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="exe1.bin" />
     <None Include="res\update.exe" />
     <None Include="Source.def" />
-    <None Include="xml1.bin" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="IRQQPluginSDK.rc" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\close_normal.png" />
-    <Image Include="res\diy_normal.png" />
     <Image Include="res\donate.png" />
-    <Image Include="res\group_normal.png" />
     <Image Include="res\zan_normal.png" />
-  </ItemGroup>
-  <ItemGroup>
-    <Xml Include="setting.xml" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

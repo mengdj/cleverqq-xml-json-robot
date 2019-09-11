@@ -42,12 +42,6 @@
     <ClInclude Include="zlib.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="标头.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="SetWindowWnd.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="cJSON.c">
@@ -59,7 +53,7 @@
     <ClCompile Include="IRQQAllFun.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="SetWindowWnd.cpp">
+    <ClCompile Include="SetWindow.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
@@ -68,12 +62,6 @@
       <Filter>源文件</Filter>
     </None>
     <None Include="res\update.exe" />
-    <None Include="exe1.bin">
-      <Filter>资源文件</Filter>
-    </None>
-    <None Include="xml1.bin">
-      <Filter>资源文件</Filter>
-    </None>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="IRQQPluginSDK.rc">
@@ -87,17 +75,8 @@
     <Image Include="res\close_normal.png">
       <Filter>资源文件</Filter>
     </Image>
-    <Image Include="res\diy_normal.png">
-      <Filter>资源文件</Filter>
-    </Image>
-    <Image Include="res\group_normal.png">
-      <Filter>资源文件</Filter>
-    </Image>
     <Image Include="res\zan_normal.png">
       <Filter>资源文件</Filter>
     </Image>
-  </ItemGroup>
-  <ItemGroup>
-    <Xml Include="setting.xml" />
   </ItemGroup>
 </Project>

@@ -87,8 +87,8 @@ unsigned WINAPI			CheckUpgradeProc(LPVOID);
 BOOL					HttpGet(const char* url, LP_CURL_PROCESS_VAL lp);
 LOCAL void				DebugMsg(LPCTSTR w);
 
-extern int  WINAPI		PluginWinMainEx(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow);
-extern BOOL	WINAPI		RegisterEventProcessEx(ProcessEvent e);
+extern int  WINAPI		PluginWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow);
+extern BOOL	WINAPI		RegisterEventProcess(ProcessEvent e);
 extern DWORD			LoadResourceFromRes(HINSTANCE hInstace, int resId, LPVOID * outBuff, LPWSTR resType);
 extern HINSTANCE		szGlobalHinstance;
 
@@ -234,8 +234,8 @@ dllexp int _stdcall IR_Event(char *RobotQQ, int MsgType, int MsgCType, char *Msg
 	设置
 */
 dllexp void _stdcall IR_SetUp() {
-	if (RegisterEventProcessEx(ProcessEventForWindow)) {
-		PluginWinMainEx(szInstance, NULL, NULL, NULL);
+	if (RegisterEventProcess(ProcessEventForWindow)) {
+		PluginWinMain(szInstance, NULL, NULL, NULL);
 	}
 }
 
@@ -379,7 +379,7 @@ unsigned WINAPI CheckUpgradeProc(LPVOID lpParameter) {
 												//开启新的进程更新dll
 												STARTUPINFO si = { 0 };
 												PROCESS_INFORMATION pi = { 0 };
-												swprintf_s(wParamUpdateExe, MAX_PATH << 2, TEXT("%s %s %s %s"), wPathUpdateExeName, wPathUpdateName, wPathCurrentName,TEXT("QQ卡片机"));
+												swprintf_s(wParamUpdateExe, MAX_PATH << 2, TEXT("%s %s %s"), wPathUpdateExeName, wPathUpdateName, wPathCurrentName);
 												if (!CreateProcess(NULL, wParamUpdateExe, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
 													//失败，略
 												}
