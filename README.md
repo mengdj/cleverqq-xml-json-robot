@@ -1,5 +1,6 @@
 # cleverqq-xml-json-robot
-QQ机器人卡片机 发送json或xml转换成卡片,支持长消息
+QQ机器人卡片机 发送json或xml转换成卡片,支持长消息<br/> 
+定制请加 QQ1824854886 或 Q群753285973
 
 开发论坛：
 https://d.cleverqq.cn/t-7331-1-1.html
