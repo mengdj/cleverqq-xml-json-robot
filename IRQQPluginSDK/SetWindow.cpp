@@ -20,8 +20,10 @@
 #endif
 #include "resource.h"
 #include <time.h>
+#include <CommCtrl.h>
+
 #define WS_CLIENT_WIDTH		302
-#define WS_CLIENT_HEIGHT	504
+#define WS_CLIENT_HEIGHT	460
 #define LOG_TRACE(...)					xLog(__LINE__, __VA_ARGS__)
 
 extern HINSTANCE	szGlobalHinstance;
@@ -37,6 +39,7 @@ FILE *szLog = NULL;
 BOOL szShow = FALSE;
 typedef BOOL(*ProcessEvent)(INT, LPVOID);
 ProcessEvent szEvent = NULL;
+static HWND hListView = NULL;
 
 LRESULT CALLBACK	PluginWndProc(HWND, UINT, WPARAM, LPARAM);
 unsigned WINAPI 	ThreadMsgProc(LPVOID lpParameter);
@@ -104,7 +107,7 @@ LRESULT CALLBACK PluginWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 		szDonateRect.left = szClientRect.left + 1;
 		szDonateRect.top = szMenuBarRect.bottom;
 		szDonateRect.right = szClientRect.right - 1;
-		szDonateRect.bottom = szClientRect.bottom - 1;
+		szDonateRect.bottom = szMenuBarRect.bottom + 100;
 
 		szBrush[0] = CreateSolidBrush(RGB(0x60, 0x4C, 0x40));
 		szFont[0] = CreateFont(
@@ -154,6 +157,28 @@ LRESULT CALLBACK PluginWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 				resBuff = NULL;
 			}
 		}
+		//初始化群列表
+		hListView = CreateWindowEx(
+			WS_EX_CLIENTEDGE,
+			WC_LISTVIEW,
+			TEXT(""),
+			WS_TABSTOP | WS_CHILD | WS_VISIBLE | LVS_AUTOARRANGE | LVS_REPORT,
+			0,
+			szDonateRect.bottom,
+			WS_CLIENT_WIDTH,
+			318,
+			hwnd,
+			NULL,
+			szGlobalHinstance,
+			NULL
+		);
+		LV_COLUMN   lvColumn;
+		lvColumn.iSubItem = 0;
+		lvColumn.pszText = TEXT("QQ群");
+		ListView_InsertColumn(hListView, 0, &lvColumn);
+		lvColumn.iSubItem = 1;
+		lvColumn.pszText = TEXT("状态(是否启用)");
+		ListView_InsertColumn(hListView, 1, &lvColumn);
 		break;
 	case WM_PAINT:
 		hdc = BeginPaint(hwnd, &ps);
@@ -293,6 +318,7 @@ LRESULT CALLBACK PluginWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 }
 
 ATOM WINAPI InitSetWindow(HINSTANCE hInstance) {
+	InitCommonControls();
 	WNDCLASSEXW     wcex = { 0 };
 	wcex.cbSize = sizeof(WNDCLASSEX);
 	wcex.style = CS_HREDRAW | CS_VREDRAW | CS_GLOBALCLASS;

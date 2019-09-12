@@ -13,7 +13,7 @@
 #include <Windows.h>
 #include <stdio.h>
 #include "resource.h"
-
+#include <tchar.h>
 #include <Shlwapi.h>
 #pragma comment(lib,"shlwapi.lib")
 
@@ -58,6 +58,7 @@
 #define	IDC_PUT_LOG						1001
 #define	IDC_PLUGIN_UNINSTALL			1002
 #define	IDC_PLUGIN_GROUP				1003
+#define TECH_SUPPORT_QQ_GROUP			"753285973"
 
 
 extern "C" {
@@ -487,34 +488,69 @@ size_t DownloadCurlReqProcess(VOID* ptr, size_t size, size_t nmemb, VOID* stream
 */
 BOOL ProcessEventForWindow(INT iEvent, LPVOID pParam) {
 	if (iEvent == IDC_PLUGIN_GROUP) {
+		//PRO不知道啥格式（加群）
 		LPCSTR sRobotQQ = pGetOnLineList();
-		CONST CHAR* sTargetQQGroup = "753285973";
+		CONST CHAR* sTargetQQGroup = TECH_SUPPORT_QQ_GROUP;
 		if (sRobotQQ) {
 			CONST CHAR* sJoinQQGroup = pGetGroupList(sRobotQQ);
-			if (sJoinQQGroup && !strstr(sJoinQQGroup, sTargetQQGroup)) {
-				CHAR sAddMsg[128] = { 0 };
-				sprintf_s(sAddMsg, "%s;Plugin Version:%d.%d.%d", pGetVer(), MAJ_VER, MID_VER, MIN_VER);
-				pJoinGroup(sRobotQQ, sTargetQQGroup, sAddMsg);
+			if (sJoinQQGroup) {
+				if (!strstr(sJoinQQGroup, sTargetQQGroup)) {
+					CHAR sAddMsg[128] = { 0 };
+					sprintf_s(sAddMsg, "%s;Plugin Version:%d.%d.%d", pGetVer(), MAJ_VER, MID_VER, MIN_VER);
+					pJoinGroup(sRobotQQ, sTargetQQGroup, sAddMsg);
+				}
+				//解析群组信息到数据库（所以机器人共享屏蔽群信息）
+				if ((sJoinQQGroup = strstr(sJoinQQGroup, "_GetGroupPortal_Callback(")) != NULL) {
+					sJoinQQGroup += strlen("_GetGroupPortal_Callback(");
+					INT iJsonQQGroupSize = strlen(sJoinQQGroup) - 2;
+					if (iJsonQQGroupSize) {
+						CHAR *pJsonQQGroup = (CHAR *)malloc(iJsonQQGroupSize);
+						if (pJsonQQGroup != NULL) {
+							CopyMemory(pJsonQQGroup, sJoinQQGroup, iJsonQQGroupSize);
+							TCHAR wCfgDir[MAX_PATH + 1] = { 0 };
+							GetModuleFileName(NULL, wCfgDir, MAX_PATH);
+							PathRemoveFileSpec(wCfgDir);
+							wsprintf(wCfgDir, TEXT("%s\\config"), wCfgDir);
+							BOOL bExistDir = PathIsDirectory(wCfgDir) ? TRUE : CreateDirectory(wCfgDir, NULL);
+							if (bExistDir) {
+								wsprintf(wCfgDir, TEXT("%s\\QQ卡片机"), wCfgDir);
+								bExistDir=PathIsDirectory(wCfgDir) ? TRUE : CreateDirectory(wCfgDir, NULL);
+							}
+							if (bExistDir) {
+								//sqlite3
+								wsprintf(wCfgDir, TEXT("%s\\data.db"), wCfgDir);
+							}
+							else {
+								CHAR sErrMsg[64] = { 0 };
+								sprintf_s(sErrMsg, "构建配置文件失败(%d)", GetLastError());
+								pOutPutLog(sErrMsg);
+							}
+							free(pJsonQQGroup);
+						}
+					}
+				}
 			}
 		}
 		return TRUE;
 
 	}
 	else if (iEvent == IDB_PNG_ZAN) {
+		//点赞
 		LPCSTR sRobotQQ = pGetOnLineList();
 		if (sRobotQQ) {
 			LPCSTR sTmpRet = pUpVote(sRobotQQ, "1824854886");
 			if (NULL != sTmpRet) {
 				pOutPutLog(sTmpRet);
 			}
-
 		}
 	}
 	else if (iEvent == IDC_PUT_LOG) {
+		//写日志
 		pOutPutLog((LPCSTR)pParam);
 		return TRUE;
 	}
 	else if (iEvent == IDC_PLUGIN_UNINSTALL) {
+		//卸载
 		pUninstallPlugin();
 		return TRUE;
 	}
