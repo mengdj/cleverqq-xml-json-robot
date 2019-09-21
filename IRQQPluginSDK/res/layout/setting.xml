@@ -1,0 +1,27 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<Window size="420,360">
+    <Font name="宋体" size="16" bold="false" italic="false" id="0"/>
+    <Font name="宋体" size="14" bold="false" italic="false" id="1"/>
+    <VerticalLayout name="MAIN" width="480" height="360" bkcolor="#FFFFFFFF">
+        <HorizontalLayout name="TOP" height="32" bkcolor="#FF333333">
+            <HorizontalLayout width="100" height="32">
+                <Label name="LABEL_TITLE" text="QQ卡片机" float="true" pos="0,0,0,0" width="100" height="32" textcolor="#00FFFBF0" disabledtextcolor="#FFA7A6AA" font="0" align="center" />
+            </HorizontalLayout>
+            <HorizontalLayout height="32" />
+            <HorizontalLayout width="64" height="32">
+                <Button name="BTN_ZAN" float="true" pos="0,0,0,0" width="32" height="32" textcolor="#FF000000" disabledtextcolor="#FFA7A6AA" align="center" normalimage="layout_zan_normal.png" pushedimage="layout_zan_active.png" focusedimage="layout_zan_active.png" />
+                <Button name="BTN_CLOSE" float="true" pos="32,0,0,0" width="32" height="32" textcolor="#FF000000" disabledtextcolor="#FFA7A6AA" align="center" normalimage="layout_close_normal.png" pushedimage="layout_close_active.png" focusedimage="layout_close_active.png" />
+            </HorizontalLayout>
+        </HorizontalLayout>
+        <HorizontalLayout name="BANNER" width="420" height="128" />
+        <HorizontalLayout name="GROUP_LIST" height="300">
+            <List itemtextcolor="#FF000000" itemselectedtextcolor="#FF000000" itemselectedbkcolor="#FFC1E3FF" itemhottextcolor="#FF000000" itemhotbkcolor="#FFE9F5FF" itemdisabledtextcolor="#FFCCCCCC" itemdisabledbkcolor="#FFFFFFFF">
+                <ListHeader height="24" menu="true">
+                    <ListHeaderItem text="QQ群" width="200" height="32" minwidth="16" textcolor="#FF000000" sepwidth="2" align="center" font="1"/>
+                    <ListHeaderItem text="所属QQ" width="110" height="32" minwidth="60" textcolor="#FF000000" sepwidth="2" align="center" font="1"/>
+                    <ListHeaderItem text="启用" width="110" height="32" minwidth="60" textcolor="#FF000000" sepwidth="2" align="center" font="1"/>
+                </ListHeader>
+            </List>
+        </HorizontalLayout>
+    </VerticalLayout>
+</Window>
