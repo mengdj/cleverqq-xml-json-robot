@@ -7,6 +7,7 @@
 #pragma comment(lib,"sqlite3.lib")
 #pragma comment(lib,"SQLiteCpp.lib")
 
+
 extern HINSTANCE	szGlobalHinstance;
 typedef BOOL(*ProcessEvent)(INT, LPVOID);
 ProcessEvent szEvent = NULL;
@@ -49,9 +50,15 @@ void CSettingWindow::InitWindow() {
 			SQLite::Statement  query(*szDatabase, "SELECT id,qg_qq,qg_group_name,qg_status FROM qq_group");
 			WCHAR *wGroupName = NULL;
 			WCHAR wNum[24] = { 0 };
+			CDialogBuilder builder;
+			CListContainerElementUI *pListItem = NULL;
 			while (query.executeStep()) {
-				CDialogBuilder builder;
-				CListContainerElementUI *pListItem = static_cast<CListContainerElementUI*>(builder.Create(_T("layout/group_list_item.xml"), 0, NULL, &m_PaintManager));
+				if (!builder.GetMarkup()->IsValid()) {
+					pListItem = static_cast<CListContainerElementUI*>(builder.Create(_T("layout/group_list_item.xml"), (UINT)0, NULL, &m_PaintManager));
+				}
+				else {
+					pListItem = static_cast<CListContainerElementUI*>(builder.Create(NULL, &m_PaintManager));
+				}
 				if (NULL != pListItem) {
 					CLabelUI *pGroupName = static_cast<CLabelUI *>(pListItem->FindSubControl(_T("GROUP_NAME")));
 					CLabelUI *pGroupOwnerId = static_cast<CLabelUI *>(pListItem->FindSubControl(_T("GROUP_OWNER_ID")));
