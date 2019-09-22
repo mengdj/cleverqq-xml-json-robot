@@ -4,7 +4,7 @@
 	@filename		IRQQAllFun.cpp
 	@author			mengdj@outlook.com
 	@date			2019.09.22
-	@version		1.1.3
+	@version		1.1.5
 */
 #define WIN32_LEAN_AND_MEAN  
 #include "constant.h"//常量名声明
@@ -118,7 +118,7 @@ LOCAL SQLite::Database *szDatabase = NULL;
 dllexp char *  _stdcall IR_Create() {
 	char *szBuffer =
 		"插件名称{QQ卡片机}\n"
-		"插件版本{1.1.3}\n"
+		"插件版本{1.1.5}\n"
 		"插件作者{mengdj}\n"
 		"插件说明{发送json或xml转换成卡片,如没有返回则代表数据有误,请自行检查}\n"
 		"插件skey{8956RTEWDFG3216598WERDF3}"
@@ -198,25 +198,21 @@ dllexp int _stdcall IR_Event(char *RobotQQ, int MsgType, int MsgCType, char *Msg
 					sprintf_s(cUrl, "http://api.funtao8.com/msg.php?m_resid=%s", res_id);
 					if (HttpGet(cUrl, &cpv)) {
 						pOutPutLog(cUrl);
-						//编码转换 UTF-8=》UNICODE
-						wchar_t *pwBody = NULL;
-						if ((pwBody = UTF8ToUnicode((char*)cpv.buffer)) != NULL) {
+						//编码转换 UTF-8=》ANSI
+						char *paBody = NULL;
+						if ((paBody = UTF8ToANSI((const char*)cpv.buffer)) != NULL) {
 							//2KB
-							char *puBody = NULL;
-							if ((puBody = w2m(pwBody))) {
-								char* pTmpBody = puBody;
-								pTmpBody += strlen(pCommand);
-								if (strstr(pTmpBody, "<?xml")) {
-									pSendXML(RobotQQ, SEND_TYPE, MsgType, (MsgType == MT_FRIEND ? NULL : MsgFrom), MsgFrom, pTmpBody, 0);
-								}if (strstr(pTmpBody, "{")) {
-									pSendJSON(RobotQQ, SEND_TYPE, MsgType, (MsgType == MT_FRIEND ? NULL : MsgFrom), MsgFrom, pTmpBody);
-								}
-								else {
-									pOutPutLog(pTmpBody);
-								}
-								free(puBody);
+							char* pTmpBody = paBody;
+							pTmpBody += strlen(pCommand);
+							if (strstr(pTmpBody, "<?xml")) {
+								pSendXML(RobotQQ, SEND_TYPE, MsgType, (MsgType == MT_FRIEND ? NULL : MsgFrom), MsgFrom, pTmpBody, 0);
+							}if (strstr(pTmpBody, "{")) {
+								pSendJSON(RobotQQ, SEND_TYPE, MsgType, (MsgType == MT_FRIEND ? NULL : MsgFrom), MsgFrom, pTmpBody);
 							}
-							free(pwBody);
+							else {
+								pOutPutLog(pTmpBody);
+							}
+							free(paBody);
 						}
 					}
 					else {
