@@ -164,8 +164,9 @@ dllexp int _stdcall IR_Event(char *RobotQQ, int MsgType, int MsgCType, char *Msg
 		if (MsgType == MT_GROUP) {
 			bAllowSend = szDatabase == NULL ? false : true;
 			if (bAllowSend) {
-				SQLite::Statement  query(*szDatabase, "SELECT COUNT(id) AS C FROM qq_group WHERE qg_group_id=? AND qg_status='1' LIMIT 1");
+				SQLite::Statement  query(*szDatabase, "SELECT COUNT(id) AS C FROM qq_group WHERE qg_group_id=? AND qg_qq=? AND qg_status=1 LIMIT 1");
 				query.bind(1, atoi(MsgFrom));
+				query.bind(2, atoi(RobotQQ));
 				SQLite::Column oRows = szDatabase->execAndGet(query.getExpandedSQL());
 				if (oRows.getInt() == 0) {
 					bAllowSend = false;
