@@ -60,7 +60,7 @@
 
 #define MAJ_VER							1		//主版本
 #define MID_VER							1		//中版本
-#define MIN_VER							3		//次版本
+#define MIN_VER							5		//次版本
 #define COU_VER							3
 
 #define	IDC_PUT_LOG						1001
