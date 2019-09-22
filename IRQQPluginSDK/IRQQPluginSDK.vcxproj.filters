@@ -30,9 +30,6 @@
     <ClInclude Include="resource.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="stb_image.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="iconv.h">
       <Filter>头文件</Filter>
     </ClInclude>
@@ -40,6 +37,12 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="zlib.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CJsonObject.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="SettingWindow.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -53,15 +56,19 @@
     <ClCompile Include="IRQQAllFun.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="SetWindow.cpp">
+    <ClCompile Include="CJsonObject.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="SettingWindow.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Source.def">
-      <Filter>源文件</Filter>
-    </None>
     <None Include="res\update.exe" />
+    <None Include="res\data.db" />
+    <None Include="res\rc.zip" />
+    <None Include="res\layout.zip" />
+    <None Include="res\setting.zip" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="IRQQPluginSDK.rc">
@@ -78,5 +85,8 @@
     <Image Include="res\zan_normal.png">
       <Filter>资源文件</Filter>
     </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <Xml Include="res\setting.xml" />
   </ItemGroup>
 </Project>

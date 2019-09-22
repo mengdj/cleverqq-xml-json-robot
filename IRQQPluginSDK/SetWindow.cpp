@@ -13,11 +13,19 @@
 #include <commctrl.h>
 #pragma comment(lib,"comctl32.lib")
 #include "util.h"
+
+#include "resource.h"
+#define SQLITE_STATIC
+#include "SQLiteCpp/SQLiteCpp.h"
+#pragma comment(lib,"sqlite3.lib")
+#pragma comment(lib,"SQLiteCpp.lib")
+
 #ifndef STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_ONLY_PNG
 #include "stb_image.h"
 #endif
+
 #include "resource.h"
 #include <time.h>
 #include <CommCtrl.h>
@@ -26,6 +34,10 @@
 #define WS_CLIENT_HEIGHT	460
 #define LOG_TRACE(...)					xLog(__LINE__, __VA_ARGS__)
 
+#define QQ_GROUP_MSG		WM_USER+1
+#ifndef LOCAL
+#define LOCAL static
+#endif
 extern HINSTANCE	szGlobalHinstance;
 HDC			szMemDc = NULL, szPngMemDc = NULL;
 HBITMAP		szCompatibleBitmap = NULL;
@@ -39,7 +51,10 @@ FILE *szLog = NULL;
 BOOL szShow = FALSE;
 typedef BOOL(*ProcessEvent)(INT, LPVOID);
 ProcessEvent szEvent = NULL;
-static HWND hListView = NULL;
+LOCAL HWND hListView = NULL;
+LOCAL SQLite::Database *szDatabase = NULL;
+LOCAL HIMAGELIST szImageList = NULL;
+extern wchar_t * ANSIToUnicode(const char* str);
 
 LRESULT CALLBACK	PluginWndProc(HWND, UINT, WPARAM, LPARAM);
 unsigned WINAPI 	ThreadMsgProc(LPVOID lpParameter);
@@ -49,9 +64,10 @@ VOID				UpdateTooltipEx(HWND, HWND, LPRECT, WCHAR*);
 BOOL	WINAPI		RegisterEventProcess(ProcessEvent e);
 VOID				xLog(int line, const char* format, ...);
 
-int WINAPI PluginWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow) {
+int WINAPI PluginWinMain(HINSTANCE hInstance, LPVOID pData, PSTR szCmdLine, int iCmdShow) {
+	szDatabase = (SQLite::Database*)pData;
 	if (!szShow) {
-		static TCHAR szAppName[] = TEXT("CleverQQPluginCardSetWindow");
+		TCHAR szAppName[] = TEXT("CleverQQPluginCardSetWindow");
 		_beginthreadex(NULL, 0, ThreadMsgProc, hInstance, 0, NULL);
 		szShow = TRUE;
 	}
@@ -158,11 +174,14 @@ LRESULT CALLBACK PluginWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 			}
 		}
 		//初始化群列表
+		INITCOMMONCONTROLSEX icex;
+		icex.dwICC = ICC_LISTVIEW_CLASSES;
+		InitCommonControlsEx(&icex);
 		hListView = CreateWindowEx(
 			WS_EX_CLIENTEDGE,
 			WC_LISTVIEW,
 			TEXT(""),
-			WS_TABSTOP | WS_CHILD | WS_VISIBLE | LVS_AUTOARRANGE | LVS_REPORT,
+			WS_VISIBLE | WS_CHILD | LVS_REPORT | WS_VSCROLL | LBS_NOTIFY,
 			0,
 			szDonateRect.bottom,
 			WS_CLIENT_WIDTH,
@@ -172,13 +191,71 @@ LRESULT CALLBACK PluginWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 			szGlobalHinstance,
 			NULL
 		);
+		SetWindowLong(hListView, GWL_ID, QQ_GROUP_MSG);
 		LV_COLUMN   lvColumn;
 		lvColumn.iSubItem = 0;
 		lvColumn.pszText = TEXT("QQ群");
+		lvColumn.mask = LVCF_FMT | LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
+		lvColumn.fmt = LVCFMT_CENTER;
 		ListView_InsertColumn(hListView, 0, &lvColumn);
+		ListView_SetColumnWidth(hListView, 0, 160);
 		lvColumn.iSubItem = 1;
-		lvColumn.pszText = TEXT("状态(是否启用)");
+		lvColumn.pszText = TEXT("归属QQ");
 		ListView_InsertColumn(hListView, 1, &lvColumn);
+		ListView_SetColumnWidth(hListView, 1, 119);
+		if (NULL != szDatabase) {
+			try {
+				SQLite::Statement  query(*szDatabase, "SELECT id,qg_qq,qg_group_name,qg_status FROM qq_group");
+				INT iPos = 0;
+				WCHAR *pGroupName = NULL;
+				if (NULL != (szImageList = ImageList_Create(32, 32, ILC_COLOR32, 2, 0))) {
+					ImageList_AddIcon(szImageList, LoadIcon(szGlobalHinstance, MAKEINTRESOURCE(IDI_ICON_OFF)));
+					ImageList_AddIcon(szImageList, LoadIcon(szGlobalHinstance, MAKEINTRESOURCE(IDI_ICON_ON)));
+					ListView_SetImageList(hListView, szImageList, LVSIL_SMALL);
+					WCHAR wNum[24] = { 0 };
+					while (query.executeStep()) {
+						if (NULL != (pGroupName = ANSIToUnicode(query.getColumn(2)))) {
+							LVITEM vitem;
+							vitem.mask = LVIF_TEXT | LVIF_IMAGE;
+							vitem.pszText = pGroupName;
+							vitem.iItem = iPos;
+							vitem.iSubItem = 0;
+							vitem.iImage = 0;
+							if (query.getColumn(2).getInt() == 1) {
+								vitem.iImage = 1;
+							}
+							vitem.cchTextMax = 128;
+							ListView_InsertItem(hListView, &vitem);
+							vitem.iSubItem = 1;
+							ZeroMemory(wNum, wcslen(wNum));
+							wsprintf(wNum, TEXT("%d"), query.getColumn(1).getInt());
+							vitem.pszText = wNum;
+							ListView_SetItem(hListView, &vitem);
+							free(pGroupName);
+							++iPos;
+						}
+					}
+				}
+			}
+			catch (std::exception& ex) {
+				LOG_TRACE("error:%s", ex.what());
+			}
+		}
+		break;
+	case WM_COMMAND:
+		switch (LOWORD(wParam)) {
+		case QQ_GROUP_MSG:
+			switch (HIWORD(wParam)) {
+			case LBN_DBLCLK:
+				MessageBox(NULL, TEXT("xx"), TEXT("xx"), MB_OK);
+				break;
+			default:
+				break;
+			}
+			break;
+		default:
+			break;
+		}
 		break;
 	case WM_PAINT:
 		hdc = BeginPaint(hwnd, &ps);
@@ -309,6 +386,9 @@ LRESULT CALLBACK PluginWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 			DestroyWindow(szHwnd[0]);
 			szHwnd[0] = NULL;
 		}
+		if (NULL != szImageList) {
+			ImageList_Destroy(szImageList);
+		}
 		szShow = FALSE;
 		szEvent = NULL;
 		PostQuitMessage(0);
@@ -316,6 +396,7 @@ LRESULT CALLBACK PluginWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 	}
 	return DefWindowProc(hwnd, message, wParam, lParam);
 }
+
 
 ATOM WINAPI InitSetWindow(HINSTANCE hInstance) {
 	InitCommonControls();

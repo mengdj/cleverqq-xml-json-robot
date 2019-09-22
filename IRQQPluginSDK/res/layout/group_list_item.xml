@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<Window>
+    <ListContainerElement height="32">
+        <HorizontalLayout height="32">
+            <Label name="GROUP_NAME" text="QQ群" width="160" height="32" textpadding="30,0,0,0" textcolor="#FF000000" disabledtextcolor="#FFA7A6AA" />
+            <Label name="GROUP_OWNER_ID" text="1824854886" width="160" height="32" textpadding="30,0,0,0" textcolor="#FF000000" disabledtextcolor="#FFA7A6AA" />
+            <HorizontalLayout height="32">
+                <Control height="32" />
+                <Button name="GROUP_ENABLE_DISABLE" tooltip="停用/启用群消息" width="32" height="32" textcolor="#FF000000" disabledtextcolor="#FFA7A6AA" align="center" />
+                <Control height="32" />
+            </HorizontalLayout>
+        </HorizontalLayout>
+    </ListContainerElement>
+</Window>

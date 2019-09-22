@@ -13,13 +13,12 @@
 #include <Windows.h>
 #include <stdio.h>
 #include "resource.h"
-#include <tchar.h>
 #include <Shlwapi.h>
 #pragma comment(lib,"shlwapi.lib")
 
-#include "cJSON.h"
+#include "CJsonObject.hpp"
 #include "iconv.h"
-
+#include "util.h"
 #include "zlib.h"
 #ifdef DEBUG
 #pragma comment(lib,"zlibstaticd.lib")
@@ -27,13 +26,17 @@
 #pragma comment(lib,"zlibstatic.lib")
 #endif
 
+#ifndef LOCAL
 #define LOCAL static
+#endif
+
 #ifndef CURL_STATICLIB
 #define CURL_STATICLIB
 #pragma comment(lib,"Crypt32.lib")
 #pragma comment(lib,"Wldap32.lib")
 #pragma comment(lib,"ws2_32.lib")
 #include "curl/curl.h"
+
 #ifdef DEBUG
 #pragma comment(lib,"libcurld.lib")
 #else
@@ -41,23 +44,31 @@
 #endif
 #endif
 
+#define SQLITE_STATIC
+#include "SQLiteCpp/SQLiteCpp.h"
+#pragma comment(lib,"sqlite3.lib")
+#pragma comment(lib,"SQLiteCpp.lib")
+
 #ifdef __cplusplus
 #define dllexp extern"C" __declspec(dllexport)
 #else
 #define dllexp __declspec(dllexport)
 #endif  
-#define CURL_MAX_BUFFER_SIZE			262144	//256KB
+#define CURL_MAX_BUFFER_SIZE			131072	//128KB
 #define MAX_LOADSTRING					128
 #define SEND_TYPE						1
 
 #define MAJ_VER							1		//主版本
 #define MID_VER							1		//中版本
-#define MIN_VER							1		//次版本
+#define MIN_VER							2		//次版本
 #define COU_VER							3
 
 #define	IDC_PUT_LOG						1001
 #define	IDC_PLUGIN_UNINSTALL			1002
 #define	IDC_PLUGIN_GROUP				1003
+#define	IDC_PLUGIN_CREATE				1004
+#define	IDC_PLUGIN_REPORT				1005
+#define IDC_PLUGIN_ZAN					1006
 #define TECH_SUPPORT_QQ_GROUP			"753285973"
 
 
@@ -82,13 +93,15 @@ typedef struct {
 } CURL_PROCESS_VAL, *LP_CURL_PROCESS_VAL;
 
 BOOL					ProcessEventForWindow(INT, LPVOID);
+BOOL					ProcessEventForPluginGroup(INT, LPVOID);
+BOOL					ProcessEventForPluginCreate(INT iEvent, LPVOID pParam);
 size_t					GenCurlReqProcess(VOID*, size_t, size_t, VOID*);
 size_t					DownloadCurlReqProcess(VOID*, size_t, size_t, VOID*);
 unsigned WINAPI			CheckUpgradeProc(LPVOID);
 BOOL					HttpGet(const char* url, LP_CURL_PROCESS_VAL lp);
 LOCAL void				DebugMsg(LPCTSTR w);
 
-extern int  WINAPI		PluginWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow);
+extern int  WINAPI		PluginWinMain(HINSTANCE hInstance, LPVOID pData, PSTR szCmdLine, int iCmdShow);
 extern BOOL	WINAPI		RegisterEventProcess(ProcessEvent e);
 extern DWORD			LoadResourceFromRes(HINSTANCE hInstace, int resId, LPVOID * outBuff, LPWSTR resType);
 extern HINSTANCE		szGlobalHinstance;
@@ -97,12 +110,15 @@ HINSTANCE szInstance = NULL, szApiInstance = NULL;
 LOCAL BOOL szCurlGlobalClean = FALSE;
 LOCAL HANDLE szUpgradeHandle = NULL;
 LOCAL CRITICAL_SECTION szCs = { 0 };
+LOCAL WCHAR szCfgDir[MAX_PATH] = { 0 };
+LOCAL BOOL szCfgInit = FALSE;
+LOCAL SQLite::Database *szDatabase = NULL;
 
 ///	IRQQ创建完毕
 dllexp char *  _stdcall IR_Create() {
 	char *szBuffer =
 		"插件名称{QQ卡片机}\n"
-		"插件版本{1.1.1}\n"
+		"插件版本{1.1.2}\n"
 		"插件作者{mengdj}\n"
 		"插件说明{发送json或xml转换成卡片,如没有返回则代表数据有误,请自行检查}\n"
 		"插件skey{8956RTEWDFG3216598WERDF3}"
@@ -144,67 +160,94 @@ dllexp int _stdcall IR_Event(char *RobotQQ, int MsgType, int MsgCType, char *Msg
 	if (MsgType == MT_FRIEND || MsgType == MT_GROUP) {
 		const char *pCommand = "我要转卡片=";
 		const char *pMoreMsgMarket = "m_resid=\"";
-		if (strstr(Msg, pCommand)) {
-			const char *pMoreMsg = strstr(Msg, pMoreMsgMarket);
-			if (pMoreMsg) {
-				//观察数据长度为64位，预留1倍128
-				char res_id[128] = { 0 };
-				int i = 0;
-				pMoreMsg += strlen(pMoreMsgMarket);
-				while (pMoreMsg != NULL&&i < 128) {
-					//0x22=" ASCII
-					if (*pMoreMsg == 0x22) {
-						break;
-					}
-					res_id[i] = *pMoreMsg;
-					++i;
-					++pMoreMsg;
+		bool bAllowSend = true;
+		if (MsgType == MT_GROUP) {
+			bAllowSend = szDatabase == NULL ? false : true;
+			if (bAllowSend) {
+				SQLite::Statement  query(*szDatabase, "SELECT COUNT(id) AS C FROM qq_group WHERE qg_group_id=? AND qg_status='1' LIMIT 1");
+				query.bind(1, atoi(MsgFrom));
+				SQLite::Column oRows = szDatabase->execAndGet(query.getExpandedSQL());
+				if (oRows.getInt() == 0) {
+					bAllowSend = false;
 				}
-				char cUrl[512] = { 0 };
-				//第三方API解析长消息(保不准哪天会失效)
-				CURL_PROCESS_VAL cpv = { 0 };
-				cpv.process = GenCurlReqProcess;
-				sprintf_s(cUrl, "http://api.funtao8.com/msg.php?m_resid=%s", res_id);
-				if (HttpGet(cUrl, &cpv)) {
-					pOutPutLog(cUrl);
-					//编码转换 UTF-8=》UNICODE
-					wchar_t *pwBody = NULL;
-					if ((pwBody = UTF8ToUnicode((char*)cpv.buffer)) != NULL) {
-						//2KB
-						char puBody[2048] = { 0 };
-						if ((i = WChar2Char(pwBody, puBody))) {
-							char* pTmpBody = puBody;
-							pTmpBody += strlen(pCommand);
-							if (strstr(pTmpBody, "<?xml")) {
-								pSendXML(RobotQQ, SEND_TYPE, MsgType, (MsgType == MT_FRIEND ? NULL : MsgFrom), MsgFrom, pTmpBody, 0);
-							}if (strstr(pTmpBody, "{")) {
-								pSendJSON(RobotQQ, SEND_TYPE, MsgType, (MsgType == MT_FRIEND ? NULL : MsgFrom), MsgFrom, pTmpBody);
-							}
-							else {
-								pOutPutLog(pTmpBody);
-							}
+			}
+		}
+		//对于群消息
+		if (bAllowSend) {
+			if (strstr(Msg, pCommand)) {
+				const char *pMoreMsg = strstr(Msg, pMoreMsgMarket);
+				if (pMoreMsg) {
+					//观察数据长度为64位，预留1倍128
+					char res_id[128] = { 0 };
+					int i = 0;
+					pMoreMsg += strlen(pMoreMsgMarket);
+					while (pMoreMsg != NULL&&i < 128) {
+						//0x22=" ASCII
+						if (*pMoreMsg == 0x22) {
+							break;
 						}
-						free(pwBody);
+						res_id[i] = *pMoreMsg;
+						++i;
+						++pMoreMsg;
+					}
+					char cUrl[512] = { 0 };
+					//第三方API解析长消息(保不准哪天会失效)
+					CURL_PROCESS_VAL cpv = { 0 };
+					cpv.process = GenCurlReqProcess;
+					sprintf_s(cUrl, "http://api.funtao8.com/msg.php?m_resid=%s", res_id);
+					if (HttpGet(cUrl, &cpv)) {
+						pOutPutLog(cUrl);
+						//编码转换 UTF-8=》UNICODE
+						wchar_t *pwBody = NULL;
+						if ((pwBody = UTF8ToUnicode((char*)cpv.buffer)) != NULL) {
+							//2KB
+							char *puBody = NULL;
+							if ((puBody = w2m(pwBody))) {
+								char* pTmpBody = puBody;
+								pTmpBody += strlen(pCommand);
+								if (strstr(pTmpBody, "<?xml")) {
+									pSendXML(RobotQQ, SEND_TYPE, MsgType, (MsgType == MT_FRIEND ? NULL : MsgFrom), MsgFrom, pTmpBody, 0);
+								}if (strstr(pTmpBody, "{")) {
+									pSendJSON(RobotQQ, SEND_TYPE, MsgType, (MsgType == MT_FRIEND ? NULL : MsgFrom), MsgFrom, pTmpBody);
+								}
+								else {
+									pOutPutLog(pTmpBody);
+								}
+								free(puBody);
+							}
+							free(pwBody);
+						}
+					}
+					else {
+						pOutPutLog(cpv.msg);
 					}
 				}
 				else {
-					pOutPutLog(cpv.msg);
+					Msg += strlen(pCommand);
+					if (strstr(Msg, "<?xml")) {
+						pSendXML(RobotQQ, SEND_TYPE, MsgType, (MsgType == MT_FRIEND ? NULL : MsgFrom), MsgFrom, Msg, 0);
+					}if (strstr(Msg, "{") && !strstr(Msg, "[IR:")) {
+						//部分图片表情以[IR:xx
+						pSendJSON(RobotQQ, SEND_TYPE, MsgType, (MsgType == MT_FRIEND ? NULL : MsgFrom), MsgFrom, Msg);
+					}
 				}
 			}
 			else {
-				Msg += strlen(pCommand);
-				if (strstr(Msg, "<?xml")) {
-					pSendXML(RobotQQ, SEND_TYPE, MsgType, (MsgType == MT_FRIEND ? NULL : MsgFrom), MsgFrom, Msg, 0);
-				}if (strstr(Msg, "{")) {
-					pSendJSON(RobotQQ, SEND_TYPE, MsgType, (MsgType == MT_FRIEND ? NULL : MsgFrom), MsgFrom, Msg);
+				//逆向转换卡片到xml或json
+				if (strstr(Msg, "<?xml") || (strstr(Msg, "{") && strstr(Msg, "}"))) {
+					pSendMsg(RobotQQ, MsgType, (MsgType == MT_FRIEND ? NULL : MsgFrom), MsgFrom, Msg, 1);
 				}
 			}
 		}
 		else {
-			//逆向转换卡片到xml或json
-			if (strstr(Msg, "<?xml") || (strstr(Msg, "{") && strstr(Msg, "}"))) {
-				pSendMsg(RobotQQ, MsgType, (MsgType == MT_FRIEND ? NULL : MsgFrom), MsgFrom, Msg, 1);
+			char szMsg[128] = { 0 };
+			if (NULL != szDatabase) {
+				sprintf_s(szMsg, "群(%d)未设置启用该插件，不允许发送消息，请设置", atoi(MsgFrom));
 			}
+			else {
+				sprintf_s(szMsg, "群(%d)数据库初始化失败，请重新登录", atoi(MsgFrom));
+			}
+			pOutPutLog(szMsg);
 		}
 	}
 	else if (MsgType == MT_P_LOGIN_SUCCESS) {
@@ -216,6 +259,7 @@ dllexp int _stdcall IR_Event(char *RobotQQ, int MsgType, int MsgCType, char *Msg
 		szInstance = GetModuleHandle(NULL);
 		curl_global_init(CURL_GLOBAL_ALL);
 		InitializeCriticalSection(&szCs);
+		ProcessEventForWindow(IDC_PLUGIN_CREATE, NULL);
 		//创建一个挂起的线程
 		szUpgradeHandle = (HANDLE)_beginthreadex(NULL, 0, CheckUpgradeProc, (LPVOID)ProcessEventForWindow, CREATE_SUSPENDED, NULL);
 	}
@@ -235,8 +279,10 @@ dllexp int _stdcall IR_Event(char *RobotQQ, int MsgType, int MsgCType, char *Msg
 	设置
 */
 dllexp void _stdcall IR_SetUp() {
-	if (RegisterEventProcess(ProcessEventForWindow)) {
-		PluginWinMain(szInstance, NULL, NULL, NULL);
+	if (NULL != szDatabase) {
+		if (RegisterEventProcess(ProcessEventForWindow)) {
+			PluginWinMain(szInstance, szDatabase, NULL, NULL);
+		}
 	}
 }
 
@@ -256,6 +302,9 @@ dllexp int _stdcall IR_DestroyPlugin() {
 	if (szUpgradeHandle != NULL) {
 		CloseHandle(szUpgradeHandle);
 		szUpgradeHandle = NULL;
+	}
+	if (NULL != szDatabase) {
+		delete szDatabase;
 	}
 	return 0;
 }
@@ -484,46 +533,91 @@ size_t DownloadCurlReqProcess(VOID* ptr, size_t size, size_t nmemb, VOID* stream
 }
 
 /**
-	处理设置窗口事件
+	处理添加群组以及统计资料
 */
-BOOL ProcessEventForWindow(INT iEvent, LPVOID pParam) {
-	if (iEvent == IDC_PLUGIN_GROUP) {
-		//PRO不知道啥格式（加群）
-		LPCSTR sRobotQQ = pGetOnLineList();
-		CONST CHAR* sTargetQQGroup = TECH_SUPPORT_QQ_GROUP;
-		if (sRobotQQ) {
-			CONST CHAR* sJoinQQGroup = pGetGroupList(sRobotQQ);
-			if (sJoinQQGroup) {
-				if (!strstr(sJoinQQGroup, sTargetQQGroup)) {
-					CHAR sAddMsg[128] = { 0 };
-					sprintf_s(sAddMsg, "%s;Plugin Version:%d.%d.%d", pGetVer(), MAJ_VER, MID_VER, MIN_VER);
-					pJoinGroup(sRobotQQ, sTargetQQGroup, sAddMsg);
-				}
+BOOL ProcessEventForPluginGroup(INT iEvent, LPVOID pParam) {
+	//PRO不知道啥格式（加群）
+	LPCSTR sRobotQQ = pGetOnLineList();
+	CONST CHAR* sTargetQQGroup = TECH_SUPPORT_QQ_GROUP;
+	CHAR sMsg[128] = { 0 };
+	if (sRobotQQ) {
+		CONST CHAR* sJoinQQGroup = pGetGroupList(sRobotQQ);
+		if (sJoinQQGroup) {
+			if (!strstr(sJoinQQGroup, sTargetQQGroup)) {
+				sprintf_s(sMsg, "%s;Plugin Version:%d.%d.%d", pGetVer(), MAJ_VER, MID_VER, MIN_VER);
+				pJoinGroup(sRobotQQ, sTargetQQGroup, sMsg);
+			}
+			if (szCfgInit) {
 				//解析群组信息到数据库（所以机器人共享屏蔽群信息）
-				if ((sJoinQQGroup = strstr(sJoinQQGroup, "_GetGroupPortal_Callback(")) != NULL) {
-					sJoinQQGroup += strlen("_GetGroupPortal_Callback(");
+				if ((sJoinQQGroup = strstr(sJoinQQGroup, "({")) != NULL) {
+					//(
+					sJoinQQGroup += 1;
+					//);
 					INT iJsonQQGroupSize = strlen(sJoinQQGroup) - 2;
 					if (iJsonQQGroupSize) {
 						CHAR *pJsonQQGroup = (CHAR *)malloc(iJsonQQGroupSize);
 						if (pJsonQQGroup != NULL) {
+							ZeroMemory(pJsonQQGroup, iJsonQQGroupSize);
 							CopyMemory(pJsonQQGroup, sJoinQQGroup, iJsonQQGroupSize);
-							TCHAR wCfgDir[MAX_PATH + 1] = { 0 };
-							GetModuleFileName(NULL, wCfgDir, MAX_PATH);
-							PathRemoveFileSpec(wCfgDir);
-							wsprintf(wCfgDir, TEXT("%s\\config"), wCfgDir);
-							BOOL bExistDir = PathIsDirectory(wCfgDir) ? TRUE : CreateDirectory(wCfgDir, NULL);
-							if (bExistDir) {
-								wsprintf(wCfgDir, TEXT("%s\\QQ卡片机"), wCfgDir);
-								bExistDir=PathIsDirectory(wCfgDir) ? TRUE : CreateDirectory(wCfgDir, NULL);
-							}
-							if (bExistDir) {
-								//sqlite3
-								wsprintf(wCfgDir, TEXT("%s\\data.db"), wCfgDir);
+							neb::CJsonObject oJson((const char*)pJsonQQGroup);
+							/**
+							样本
+							{"code":0,"data":{"group":[{"auth":0,"flag":0,"groupid":753285973,"groupname":"爱QQ"}],"total":},"default":0,"message":"","subcode":0}
+							*/
+							int32 iCode = 0, iTotal = 0;
+							int iGroupSize = 0;
+							if (!oJson.IsEmpty()) {
+								if (!oJson["data"].IsNull("code") && oJson.Get("code", iCode) && iCode == 0) {
+									if (!oJson["data"].IsNull("total") && oJson["data"].Get("total", iTotal) && iTotal > 0) {
+										if (oJson["data"]["group"].IsArray() && (iGroupSize = oJson["data"]["group"].GetArraySize())) {
+											int iAuth = 0, iFlag = 0, iGroupId = 0, iAdd = 0;
+											SQLite::Transaction transaction(*szDatabase);
+											try {
+												SQLite::Statement  insert(*szDatabase, "INSERT INTO qq_group(qg_qq,qg_group_id,qg_group_name,qg_auth,qg_flag,qg_status) VALUES(?,?,?,?,?,0)");
+												SQLite::Statement  query(*szDatabase, "SELECT COUNT(id) AS C FROM qq_group WHERE qg_qq=? AND qg_group_id=? LIMIT 1");
+												for (int i = 0; i < iGroupSize; i++) {
+													oJson["data"]["group"][i].IsNull("auth") && oJson["data"]["group"][i].Get("auth", iAuth);
+													oJson["data"]["group"][i].IsNull("flag") && oJson["data"]["group"][i].Get("flag", iFlag);
+													if (!oJson["data"]["group"][i].IsNull("groupid") && oJson["data"]["group"][i].Get("groupid", iGroupId)) {
+														//required
+														query.clearBindings();
+														query.bind(1, atoi(sRobotQQ));
+														query.bind(2, iGroupId);
+														SQLite::Column oRows = szDatabase->execAndGet(query.getExpandedSQL());
+														if (!oRows.getInt()) {
+															insert.clearBindings();
+															insert.bind(1, atoi(sRobotQQ));
+															insert.bind(2, iGroupId);
+															insert.bind(3, oJson["data"]["group"][i]("groupname").c_str());
+															insert.bind(4, iAuth);
+															insert.bind(5, iFlag);
+															if (szDatabase->exec(insert.getExpandedSQL())) {
+																++iAdd;
+															}
+														}
+
+													}
+												}
+												ZeroMemory(sMsg, sizeof(sMsg));
+												sprintf_s(sMsg, "初始化成功 群:%d 新增:%d", iGroupSize, iAdd);
+												pOutPutLog(sMsg);
+												transaction.commit();
+											}
+											catch (std::exception& ex) {
+												pOutPutLog(ex.what());
+											}
+										}
+									}
+									else {
+										pOutPutLog("未找到群组");
+									}
+								}
+								else {
+									pOutPutLog("解析数据群组列表出错-2");
+								}
 							}
 							else {
-								CHAR sErrMsg[64] = { 0 };
-								sprintf_s(sErrMsg, "构建配置文件失败(%d)", GetLastError());
-								pOutPutLog(sErrMsg);
+								pOutPutLog("解析数据群组列表出错-1");
 							}
 							free(pJsonQQGroup);
 						}
@@ -531,10 +625,81 @@ BOOL ProcessEventForWindow(INT iEvent, LPVOID pParam) {
 				}
 			}
 		}
-		return TRUE;
-
 	}
-	else if (iEvent == IDB_PNG_ZAN) {
+	return TRUE;
+}
+
+BOOL ProcessEventForPluginCreate(INT iEvent, LPVOID pParam) {
+	TCHAR wCfgDatabase[MAX_PATH + 1] = { 0 };
+	GetModuleFileName(NULL, szCfgDir, MAX_PATH);
+	PathRemoveFileSpec(szCfgDir);
+	wsprintf(szCfgDir, TEXT("%s\\config"), szCfgDir);
+	BOOL bExistDir = PathIsDirectory(szCfgDir) ? TRUE : CreateDirectory(szCfgDir, NULL);
+	if (bExistDir) {
+		wsprintf(szCfgDir, TEXT("%s\\QQ卡片机"), szCfgDir);
+		bExistDir = PathIsDirectory(szCfgDir) ? TRUE : CreateDirectory(szCfgDir, NULL);
+	}
+	if (bExistDir) {
+		//sqlite3
+		wsprintf(wCfgDatabase, TEXT("%s\\data.db"), szCfgDir);
+		bExistDir = PathFileExists(wCfgDatabase);
+		if (!bExistDir) {
+			//释放数据库文件
+			LPVOID bResBuff = NULL;
+			DWORD iResSize = 0, iRealBytes = 0;
+			if ((iResSize = LoadResourceFromRes(szGlobalHinstance, IDR_DATABASE_MAIN, &bResBuff, TEXT("DATABASE")))) {
+				HANDLE hUpdateHandle = (LPVOID)CreateFile(
+					wCfgDatabase,
+					GENERIC_WRITE | GENERIC_READ,
+					FILE_SHARE_READ | FILE_SHARE_WRITE,
+					NULL,
+					OPEN_ALWAYS,
+					FILE_ATTRIBUTE_NORMAL,
+					NULL
+				);
+				if (hUpdateHandle != INVALID_HANDLE_VALUE) {
+					WriteFile(hUpdateHandle, bResBuff, iResSize, &iRealBytes, NULL);
+					if (iRealBytes) {
+						FlushFileBuffers(hUpdateHandle);
+					}
+					CloseHandle(hUpdateHandle);
+					hUpdateHandle = NULL;
+					bExistDir = TRUE;
+				}
+				free(bResBuff);
+				bResBuff = NULL;
+			}
+		}
+	}
+	//初始化sqlite库
+	if (bExistDir&& NULL == szDatabase) {
+		char *sTmpDatabase = NULL;
+		if (NULL != (sTmpDatabase = UnicodeToUTF8(wCfgDatabase))) {
+			try {
+				//默认是不支持的中文路径的(需要转换到UTF-8)
+				szDatabase = new SQLite::Database(sTmpDatabase, SQLite::OPEN_READWRITE);
+			}
+			catch (...) {
+				pOutPutLog("SQLITE 初始化失败");
+				bExistDir = FALSE;
+			}
+		}
+		szCfgInit = bExistDir;
+	}
+	return bExistDir;
+}
+
+/**
+	处理设置窗口事件
+*/
+BOOL ProcessEventForWindow(INT iEvent, LPVOID pParam) {
+	if (iEvent == IDC_PLUGIN_GROUP) {
+		return ProcessEventForPluginGroup(iEvent, pParam);
+	}
+	else if (iEvent == IDC_PLUGIN_CREATE) {
+		return ProcessEventForPluginCreate(iEvent, pParam);
+	}
+	else if (iEvent == IDC_PLUGIN_ZAN) {
 		//点赞
 		LPCSTR sRobotQQ = pGetOnLineList();
 		if (sRobotQQ) {
