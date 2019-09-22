@@ -1,6 +1,6 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
-<Window size="422,360" caption="0,0,0,32" roundcorner="2,2" sizebox="0,0,0,0">
-    <Font name="宋体" size="16" bold="false" italic="false" id="0"/>
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<Window size="422,360" caption="0,0,0,32" roundcorner="2,2">
+    <Font name="宋体" size="16" bold="false" italic="false" />
     <Font name="宋体" size="14" bold="false" italic="false" default="true" />
     <Default name="VScrollBar" value="button1normalimage=&quot;file=&apos;layout/scroll.png&apos; source=&apos;0,0,16,16&apos;&quot; button1hotimage=&quot;file=&apos;layout/scroll.png&apos; source=&apos;0,0,16,16&apos; mask=&apos;#FFFF00FF&apos;&quot; button1pushedimage=&quot;file=&apos;layout/scroll.png&apos; source=&apos;0,16,16,32&apos; mask=&apos;#FFFF00FF&apos;&quot; button1disabledimage=&quot;file=&apos;layout/scroll.png&apos; source=&apos;0,0,16,16&apos; mask=&apos;#FFFF00FF&apos;&quot; button2normalimage=&quot;file=&apos;layout/scroll.png&apos; source=&apos;0,32,16,48&apos; mask=&apos;#FFFF00FF&apos;&quot; button2hotimage=&quot;file=&apos;layout/scroll.png&apos; source=&apos;0,32,16,48&apos; mask=&apos;#FFFF00FF&apos;&quot; button2pushedimage=&quot;file=&apos;layout/scroll.png&apos; source=&apos;0,48,16,64&apos; mask=&apos;#FFFF00FF&apos;&quot; button2disabledimage=&quot;file=&apos;layout/scroll.png&apos; source=&apos;0,32,16,48&apos; mask=&apos;#FFFF00FF&apos;&quot; thumbnormalimage=&quot;file=&apos;layout/scroll.png&apos; source=&apos;0,64,16,80&apos; corner=&apos;2,2,2,2&apos; mask=&apos;#FFFF00FF&apos;&quot; thumbhotimage=&quot;file=&apos;layout/scroll.png&apos; source=&apos;0,64,16,80&apos; corner=&apos;2,2,2,2&apos; mask=&apos;#FFFF00FF&apos;&quot; thumbpushedimage=&quot;ffile=&apos;layout/scroll.png&apos; source=&apos;0,64,16,80&apos; corner=&apos;2,2,2,2&apos; mask=&apos;#FFFF00FF&apos;&quot; thumbdisabledimage=&quot;file=&apos;layout/scroll.png&apos; source=&apos;0,64,16,80&apos; corner=&apos;2,2,2,2&apos; mask=&apos;#FFFF00FF&apos;&quot; railnormalimage=&quot;file=&apos;layout/scroll.png&apos; source=&apos;0,80,16,96&apos; corner=&apos;2,2,2,2&apos; mask=&apos;#FFFF00FF&apos;&quot; railhotimage=&quot;file=&apos;layout/scroll.png&apos; source=&apos;0,80,16,96&apos; corner=&apos;2,2,2,2&apos; mask=&apos;#FFFF00FF&apos;&quot; railpushedimage=&quot;file=&apos;layout/scroll.png&apos; source=&apos;0,96,16,112&apos; corner=&apos;2,2,2,2&apos; mask=&apos;#FFFF00FF&apos;&quot; raildisabledimage=&quot;file=&apos;layout/scroll.png&apos; source=&apos;0,80,16,96&apos; corner=&apos;2,2,2,2&apos; mask=&apos;#FFFF00FF&apos;&quot; bknormalimage=&quot;file=&apos;layout/scroll.png&apos; source=&apos;0,128,16,146&apos; corner=&apos;2,2,2,2&apos; mask=&apos;#FFFF00FF&apos;&quot; bkhotimage=&quot;file=&apos;layout/scroll.png&apos; source=&apos;0,128,16,146&apos; corner=&apos;2,2,2,2&apos; mask=&apos;#FFFF00FF&apos;&quot; bkpushedimage=&quot;file=&apos;layout/scroll.png&apos; source=&apos;0,128,16,146&apos; corner=&apos;2,2,2,2&apos; mask=&apos;#FFFF00FF&apos;&quot; bkdisabledimage=&quot;file=&apos;layout/scroll.png&apos; source=&apos;0,128,16,146&apos; corner=&apos;2,2,2,2&apos; mask=&apos;#FFFF00FF&apos;&quot; " />
     <VerticalLayout name="MAIN" bordersize="1" width="420" height="360" bkcolor="#FFFFFFFF" bordercolor="#FF333333" focusbordercolor="#00008080" inset="1,0,1,1">
@@ -10,12 +10,12 @@
             </HorizontalLayout>
             <Control height="32" />
             <HorizontalLayout width="50" height="32">
-                <Button name="BTN_ZAN" tooltip="点赞" float="true" pos="0,4,0,0" width="24" height="24" textcolor="#FF000000" disabledtextcolor="#FFA7A6AA" align="center" normalimage="layout/zan_normal.png"/>
-                <Button name="BTN_CLOSE" tooltip="关闭" float="true" pos="25,4,0,0" width="24" height="24" textcolor="#FF000000" disabledtextcolor="#FFA7A6AA" align="center" normalimage="layout/close_normal.png"/>
+                <Button name="BTN_ZAN" tooltip="点赞" float="true" pos="0,4,0,0" width="24" height="24" textcolor="#FF000000" disabledtextcolor="#FFA7A6AA" align="center" normalimage="layout/zan_normal.png" />
+                <Button name="BTN_CLOSE" tooltip="关闭" float="true" pos="25,4,0,0" width="24" height="24" textcolor="#FF000000" disabledtextcolor="#FFA7A6AA" align="center" normalimage="layout/close_normal.png" />
             </HorizontalLayout>
         </HorizontalLayout>
-        <HorizontalLayout name="BANNER" width="420" height="128" bkcolor="#FFFFFFFF">
-            <Control name="BANNER_PIC" float="true" pos="0,0,0,0" width="420" height="120" bkimage="layout/banner_420x120.png" />
+        <HorizontalLayout name="BANNER" width="420" height="80" bkcolor="#FFFFFFFF">
+            <Control name="BANNER_PIC" float="true" pos="0,0,0,0" width="420" height="80" bkimage="layout/banner_420x80.png" />
         </HorizontalLayout>
         <HorizontalLayout name="GROUP" width="420" bkcolor="#FFFFFFFF">
             <List name="GROUP_LIST" itemtextcolor="#FF000000" itemselectedtextcolor="#FF000000" itemselectedbkcolor="#FFC1E3FF" itemhottextcolor="#FF000000" itemhotbkcolor="#FFE9F5FF" itemdisabledtextcolor="#FFCCCCCC" itemdisabledbkcolor="#FFFFFFFF" headerbkimage="file=&apos;layout/list_header_bg.png&apos;" vscrollbar="true">
