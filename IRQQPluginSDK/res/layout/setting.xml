@@ -9,9 +9,9 @@
                 <Label name="LABEL_TITLE" text="QQ卡片机" float="true" pos="0,0,0,0" width="100" height="32" textcolor="#00FFFBF0" disabledtextcolor="#FFA7A6AA" font="0" align="center" />
             </HorizontalLayout>
             <Control height="32" />
-            <HorizontalLayout width="50" height="32">
-                <Button name="BTN_ZAN" tooltip="点赞" float="true" pos="0,4,0,0" width="24" height="24" textcolor="#FF000000" disabledtextcolor="#FFA7A6AA" align="center" normalimage="layout/zan_normal.png" />
-                <Button name="BTN_CLOSE" tooltip="关闭" float="true" pos="25,4,0,0" width="24" height="24" textcolor="#FF000000" disabledtextcolor="#FFA7A6AA" align="center" normalimage="layout/close_normal.png" />
+            <HorizontalLayout width="52" height="32">
+                <Button name="BTN_ZAN" tooltip="点赞" float="true" pos="0,4,0,0" width="24" height="24" textcolor="#FF000000" disabledtextcolor="#FFA7A6AA" align="center" normalimage="layout/zan_normal.png"/>
+                <Button name="BTN_CLOSE" tooltip="关闭" float="true" pos="27,4,0,0" width="24" height="24" textcolor="#FF000000" disabledtextcolor="#FFA7A6AA" align="center" normalimage="layout/close_normal.png" focusedimage="layout/close_active.png" hotimage="layout/close_active.png" pushedimage="layout/close_active.png"/>
             </HorizontalLayout>
         </HorizontalLayout>
         <HorizontalLayout name="BANNER" width="420" height="80" bkcolor="#FFFFFFFF">

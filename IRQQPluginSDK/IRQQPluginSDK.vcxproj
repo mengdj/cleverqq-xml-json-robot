@@ -164,6 +164,7 @@
     <ClInclude Include="IRQQ_API.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="SettingWindow.h" />
+    <ClInclude Include="sigslot.h" />
     <ClInclude Include="util.h" />
     <ClInclude Include="zlib.h" />
   </ItemGroup>
