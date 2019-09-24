@@ -7,7 +7,6 @@
 #pragma comment(lib,"sqlite3.lib")
 #pragma comment(lib,"SQLiteCpp.lib")
 
-
 extern HINSTANCE	szGlobalHinstance;
 typedef BOOL(*ProcessEvent)(INT, LPVOID);
 ProcessEvent szEvent = NULL;

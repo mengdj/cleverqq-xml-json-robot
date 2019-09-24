@@ -80,7 +80,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>F:\孟德军\2019\2019.09.09\clever qq\trunk\IRQQPluginSDK;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)\IRQQPluginSDK;$(IncludePath)</IncludePath>
     <TargetName>$(ProjectName).IR</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

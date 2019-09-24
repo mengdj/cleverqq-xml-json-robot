@@ -44,12 +44,13 @@
 #endif
 #endif
 
-#include "sigslot.h"
+
 #define SQLITE_STATIC
 #include "SQLiteCpp/SQLiteCpp.h"
 #pragma comment(lib,"sqlite3.lib")
 #pragma comment(lib,"SQLiteCpp.lib")
 
+#include <plog/Log.h>
 #ifdef __cplusplus
 #define dllexp extern"C" __declspec(dllexport)
 #else
@@ -70,6 +71,7 @@
 #define	IDC_PLUGIN_CREATE				1004
 #define	IDC_PLUGIN_REPORT				1005
 #define IDC_PLUGIN_ZAN					1006
+#define	IDC_PLUGIN_ERROR				1007
 #define TECH_SUPPORT_QQ_GROUP			"753285973"
 
 
@@ -100,7 +102,6 @@ size_t					GenCurlReqProcess(VOID*, size_t, size_t, VOID*);
 size_t					DownloadCurlReqProcess(VOID*, size_t, size_t, VOID*);
 unsigned WINAPI			CheckUpgradeProc(LPVOID);
 BOOL					HttpGet(const char* url, LP_CURL_PROCESS_VAL lp);
-LOCAL void				DebugMsg(LPCTSTR w);
 
 extern int  WINAPI		PluginWinMain(HINSTANCE hInstance, LPVOID pData, PSTR szCmdLine, int iCmdShow);
 extern BOOL	WINAPI		RegisterEventProcess(ProcessEvent e);
@@ -237,22 +238,13 @@ dllexp int _stdcall IR_Event(char *RobotQQ, int MsgType, int MsgCType, char *Msg
 				}
 			}
 		}
-		else {
-			char szMsg[128] = { 0 };
-			if (NULL != szDatabase) {
-				sprintf_s(szMsg, "群(%d)未设置启用该插件，不允许发送消息，请设置", atoi(MsgFrom));
-			}
-			else {
-				sprintf_s(szMsg, "群(%d)数据库初始化失败，请重新登录", atoi(MsgFrom));
-			}
-			pOutPutLog(szMsg);
-		}
 	}
 	else if (MsgType == MT_P_LOGIN_SUCCESS) {
 		//应该是登录成功的消息(懵的)
 		ProcessEventForWindow(IDC_PLUGIN_GROUP, NULL);
 	} if (MsgType == MT_P_LOAD) {
 		//插件装载
+		plog::init(plog::debug, "QQ卡片机.log");
 		szApiInstance = Api_PluginInit();
 		szInstance = GetModuleHandle(NULL);
 		curl_global_init(CURL_GLOBAL_ALL);
@@ -305,12 +297,6 @@ dllexp int _stdcall IR_DestroyPlugin() {
 		delete szDatabase;
 	}
 	return 0;
-}
-
-LOCAL void DebugMsg(LPCTSTR w) {
-	WCHAR szDebug[MAX_PATH] = { 0 };
-	wsprintf(szDebug, TEXT("%s"), w);
-	MessageBox(NULL, szDebug, TEXT("DEBUG"), MB_OK);
 }
 
 /**
@@ -593,7 +579,6 @@ BOOL ProcessEventForPluginGroup(INT iEvent, LPVOID pParam) {
 																++iAdd;
 															}
 														}
-
 													}
 												}
 												ZeroMemory(sMsg, sizeof(sMsg));
@@ -678,7 +663,7 @@ BOOL ProcessEventForPluginCreate(INT iEvent, LPVOID pParam) {
 				szDatabase = new SQLite::Database(sTmpDatabase, SQLite::OPEN_READWRITE);
 			}
 			catch (...) {
-				pOutPutLog("SQLITE 初始化失败");
+				LOGW << "SQLITE 初始化失败";
 				bExistDir = FALSE;
 			}
 		}
@@ -710,6 +695,11 @@ BOOL ProcessEventForWindow(INT iEvent, LPVOID pParam) {
 	else if (iEvent == IDC_PUT_LOG) {
 		//写日志
 		pOutPutLog((LPCSTR)pParam);
+		return TRUE;
+
+	}
+	else if (iEvent == IDC_PLUGIN_ERROR) {
+		LOGE << (LPCSTR)pParam;
 		return TRUE;
 	}
 	else if (iEvent == IDC_PLUGIN_UNINSTALL) {
