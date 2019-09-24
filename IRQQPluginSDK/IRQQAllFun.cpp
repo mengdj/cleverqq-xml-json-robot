@@ -4,7 +4,7 @@
 	@filename		IRQQAllFun.cpp
 	@author			mengdj@outlook.com
 	@date			2019.09.23
-	@version		1.1.6
+	@version		1.1.7
 */
 #define WIN32_LEAN_AND_MEAN  
 #include "constant.h"//常量名声明
@@ -62,7 +62,7 @@
 
 #define MAJ_VER							1		//主版本
 #define MID_VER							1		//中版本
-#define MIN_VER							6		//次版本
+#define MIN_VER							7		//次版本
 #define COU_VER							3
 
 #define	IDC_PUT_LOG						1001
@@ -120,7 +120,7 @@ LOCAL SQLite::Database *szDatabase = NULL;
 dllexp char *  _stdcall IR_Create() {
 	char *szBuffer =
 		"插件名称{QQ卡片机}\n"
-		"插件版本{1.1.6}\n"
+		"插件版本{1.1.7}\n"
 		"插件作者{mengdj}\n"
 		"插件说明{发送json或xml转换成卡片,如没有返回则代表数据有误,请自行检查}\n"
 		"插件skey{8956RTEWDFG3216598WERDF3}"

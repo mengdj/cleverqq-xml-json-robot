@@ -104,6 +104,10 @@ void CSettingWindow::Notify(TNotifyUI& msg) {
 				szEvent(IDC_PLUGIN_ZAN, NULL);
 			}
 		}
+		else if (msg.pSender->GetName() == TEXT("BTN_LOGO")) {
+			//
+			ShellExecute(NULL, TEXT("open"), TEXT("https://d.cleverqq.cn/t-7331-1-1.html"), NULL, NULL, SW_SHOWNORMAL);
+		}
 		else if (msg.pSender->GetName() == TEXT("GROUP_ENABLE_DISABLE")) {
 			CButtonUI *pGroupEnableDisable = static_cast<CButtonUI *>(msg.pSender);
 			INT id = pGroupEnableDisable->GetTag();
