@@ -13,7 +13,13 @@
 #endif // !LOCAL
 
 #define	IDC_PUT_LOG						1001
+#define	IDC_PLUGIN_UNINSTALL			1002
+#define	IDC_PLUGIN_GROUP				1003
+#define	IDC_PLUGIN_CREATE				1004
+#define	IDC_PLUGIN_REPORT				1005
 #define IDC_PLUGIN_ZAN					1006
+#define	IDC_PLUGIN_ERROR				1007
+#define	IDC_PLUGIN_SETTING_FINISH		1008
 
 using namespace DuiLib;
 typedef BOOL(*ProcessEvent)(INT, LPVOID);

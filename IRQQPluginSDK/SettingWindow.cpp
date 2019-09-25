@@ -156,6 +156,9 @@ unsigned WINAPI ThreadMsgProc(LPVOID lpParameter) {
 			pSetWindow->ShowWindow(true);
 			CPaintManagerUI::MessageLoop();
 			delete pSetWindow;
+			if (szEvent) {
+				szEvent(IDC_PLUGIN_SETTING_FINISH, NULL);
+			}
 		}
 		UnInitSetWindow(szGlobalHinstance);
 	}

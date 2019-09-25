@@ -3,8 +3,8 @@
 	@description	转换JSON或XML到卡片消息；将卡片转换为JSON或XML
 	@filename		IRQQAllFun.cpp
 	@author			mengdj@outlook.com
-	@date			2019.09.23
-	@version		1.1.7
+	@date			2019.09.25
+	@version		1.1.8
 */
 #define WIN32_LEAN_AND_MEAN  
 #include "constant.h"//常量名声明
@@ -56,13 +56,13 @@
 #else
 #define dllexp __declspec(dllexport)
 #endif  
-#define CURL_MAX_BUFFER_SIZE			131072	//128KB
+#define CURL_MAX_BUFFER_SIZE			262144	//256KB
 #define MAX_LOADSTRING					128
 #define SEND_TYPE						1
 
 #define MAJ_VER							1		//主版本
 #define MID_VER							1		//中版本
-#define MIN_VER							7		//次版本
+#define MIN_VER							8		//次版本
 #define COU_VER							3
 
 #define	IDC_PUT_LOG						1001
@@ -72,8 +72,7 @@
 #define	IDC_PLUGIN_REPORT				1005
 #define IDC_PLUGIN_ZAN					1006
 #define	IDC_PLUGIN_ERROR				1007
-#define TECH_SUPPORT_QQ_GROUP			"753285973"
-
+#define	IDC_PLUGIN_SETTING_FINISH		1008
 
 extern "C" {
 	dllexp char * _stdcall IR_Create();
@@ -87,7 +86,8 @@ typedef BOOL(*ProcessEvent)(INT, LPVOID);
 typedef size_t(*CURL_REQ_PROCESS)(VOID*, size_t, size_t, VOID*);
 
 typedef struct {
-	INT					i;								//缓冲区长度
+	INT					i;								//缓冲区长度（当前）
+	INT					size;							//缓冲区允许最大长度（检测内存溢出时用）
 	LPBYTE				data;							//上下文对象，堆上分配用于存储超过buffer大小的
 	BYTE				buffer[CURL_MAX_BUFFER_SIZE];	//标准缓冲对象，较下对象
 	LPVOID				param;							//拓展参数
@@ -108,19 +108,21 @@ extern BOOL	WINAPI		RegisterEventProcess(ProcessEvent e);
 extern DWORD			LoadResourceFromRes(HINSTANCE hInstace, int resId, LPVOID * outBuff, LPWSTR resType);
 extern HINSTANCE		szGlobalHinstance;
 
-HINSTANCE szInstance = NULL, szApiInstance = NULL;
+LOCAL HINSTANCE szInstance = NULL, szApiInstance = NULL;
 LOCAL BOOL szCurlGlobalClean = FALSE;
+LOCAL BOOL szSetting = FALSE;
 LOCAL HANDLE szUpgradeHandle = NULL;
 LOCAL CRITICAL_SECTION szCs = { 0 };
 LOCAL WCHAR szCfgDir[MAX_PATH] = { 0 };
 LOCAL BOOL szCfgInit = FALSE;
 LOCAL SQLite::Database *szDatabase = NULL;
+LOCAL const char *TECH_SUPPORT_QQ_GROUP = "753285973";
 
 ///	IRQQ创建完毕
 dllexp char *  _stdcall IR_Create() {
 	char *szBuffer =
 		"插件名称{QQ卡片机}\n"
-		"插件版本{1.1.7}\n"
+		"插件版本{1.1.8}\n"
 		"插件作者{mengdj}\n"
 		"插件说明{发送json或xml转换成卡片,如没有返回则代表数据有误,请自行检查}\n"
 		"插件skey{8956RTEWDFG3216598WERDF3}"
@@ -160,8 +162,6 @@ dllexp int _stdcall IR_Event(char *RobotQQ, int MsgType, int MsgCType, char *Msg
 	///当IRC_消息类型为接收到财付通消息时候，IRC_消息内容将以：#换行符分割，1：金额；2：留言；3：单号；无留言时：1：金额；2：单号
 
 	if (MsgType == MT_FRIEND || MsgType == MT_GROUP) {
-		const char *pCommand = "我要转卡片=";
-		const char *pMoreMsgMarket = "m_resid=\"";
 		bool bAllowSend = true;
 		if (MsgType == MT_GROUP) {
 			bAllowSend = szDatabase == NULL ? false : true;
@@ -177,64 +177,63 @@ dllexp int _stdcall IR_Event(char *RobotQQ, int MsgType, int MsgCType, char *Msg
 		}
 		//对于群消息
 		if (bAllowSend) {
-			if (strstr(Msg, pCommand)) {
-				const char *pMoreMsg = strstr(Msg, pMoreMsgMarket);
-				if (pMoreMsg) {
-					//观察数据长度为64位，预留1倍128
-					char res_id[128] = { 0 };
-					int i = 0;
-					pMoreMsg += strlen(pMoreMsgMarket);
-					while (pMoreMsg != NULL&&i < 128) {
-						//0x22=" ASCII
-						if (*pMoreMsg == 0x22) {
-							break;
-						}
-						res_id[i] = *pMoreMsg;
-						++i;
-						++pMoreMsg;
+			const char *pCommand = "我要转卡片=";
+			const char *pMoreMsgMarket = "m_resid=\"";
+			const char *pMsgTmp = Msg;
+			const char *pMoreMsg = strstr(pMsgTmp, pMoreMsgMarket);
+			bool bConvertCard = (NULL != strstr(pMsgTmp, pCommand)) ? true : false;
+			if (NULL != pMoreMsg) {
+				//观察数据长度为64位，预留1倍128
+				char res_id[128] = { 0 };
+				int i = 0;
+				pMoreMsg += strlen(pMoreMsgMarket);
+				while (pMoreMsg != NULL&&i < 128) {
+					//0x22=" ASCII
+					if (*pMoreMsg == 0x22) {
+						break;
 					}
-					char cUrl[512] = { 0 };
-					//第三方API解析长消息(保不准哪天会失效)
-					CURL_PROCESS_VAL cpv = { 0 };
-					cpv.process = GenCurlReqProcess;
-					sprintf_s(cUrl, "http://api.funtao8.com/msg.php?m_resid=%s", res_id);
-					if (HttpGet(cUrl, &cpv)) {
-						pOutPutLog(cUrl);
-						//编码转换 UTF-8=》ANSI
-						char *paBody = NULL;
-						if ((paBody = UTF8ToANSI((const char*)cpv.buffer)) != NULL) {
-							//2KB
-							char* pTmpBody = paBody;
-							pTmpBody += strlen(pCommand);
-							if (strstr(pTmpBody, "<?xml")) {
-								pSendXML(RobotQQ, SEND_TYPE, MsgType, (MsgType == MT_FRIEND ? NULL : MsgFrom), MsgFrom, pTmpBody, 0);
-							}if (strstr(pTmpBody, "{")) {
-								pSendJSON(RobotQQ, SEND_TYPE, MsgType, (MsgType == MT_FRIEND ? NULL : MsgFrom), MsgFrom, pTmpBody);
-							}
-							else {
-								pOutPutLog(pTmpBody);
-							}
-							free(paBody);
-						}
-					}
-					else {
-						pOutPutLog(cpv.msg);
+					res_id[i] = *pMoreMsg;
+					++i;
+					++pMoreMsg;
+				}
+				char cUrl[128] = { 0 };
+				//第三方API解析长消息(保不准哪天会失效)
+				CURL_PROCESS_VAL cpv = { 0 };
+				cpv.process = GenCurlReqProcess;
+				cpv.size = CURL_MAX_BUFFER_SIZE;
+				sprintf_s(cUrl, "http://api.funtao8.com/msg.php?m_resid=%s", res_id);
+				if (HttpGet(cUrl, &cpv)) {
+					pOutPutLog(cUrl);
+					char *paBody = NULL;
+					if ((paBody = UTF8ToANSI((const char*)cpv.buffer)) != NULL) {
+						ZeroMemory(cpv.buffer, sizeof(cpv.buffer));
+						CopyMemory(cpv.buffer, paBody, strlen(paBody));
+						pMsgTmp = (char*)cpv.buffer;
+						free(paBody);
 					}
 				}
 				else {
-					Msg += strlen(pCommand);
-					if (strstr(Msg, "<?xml")) {
-						pSendXML(RobotQQ, SEND_TYPE, MsgType, (MsgType == MT_FRIEND ? NULL : MsgFrom), MsgFrom, Msg, 0);
-					}if (strstr(Msg, "{") && !strstr(Msg, "[IR:")) {
-						//部分图片表情以[IR:xx
-						pSendJSON(RobotQQ, SEND_TYPE, MsgType, (MsgType == MT_FRIEND ? NULL : MsgFrom), MsgFrom, Msg);
-					}
+					LOGE << cpv.msg;
 				}
 			}
-			else {
-				//逆向转换卡片到xml或json
-				if (strstr(Msg, "<?xml") || (strstr(Msg, "{") && strstr(Msg, "}"))) {
-					pSendMsg(RobotQQ, MsgType, (MsgType == MT_FRIEND ? NULL : MsgFrom), MsgFrom, Msg, 1);
+			//转换成功后必须过滤掉m_resid
+			if (NULL == strstr(pMsgTmp, pMoreMsgMarket)) {
+				const char *pMsgContentTmp = pMsgTmp;
+				if (NULL != strstr(pMsgTmp, pCommand)) {
+					pMsgContentTmp = pMsgTmp + strlen(pCommand);
+				}
+				if (bConvertCard) {
+					if (strstr(pMsgContentTmp, "<?xml")) {
+						pSendXML(RobotQQ, SEND_TYPE, MsgType, (MsgType == MT_FRIEND ? NULL : MsgFrom), MsgFrom, pMsgContentTmp, 0);
+					}if (strstr(pMsgContentTmp, "{") && strstr(pMsgContentTmp, "}") && !strstr(pMsgContentTmp, "[IR:")) {
+						pSendJSON(RobotQQ, SEND_TYPE, MsgType, (MsgType == MT_FRIEND ? NULL : MsgFrom), MsgFrom, pMsgContentTmp);
+					}
+				}
+				else {
+					//逆向转换卡片到xml或json
+					if (strstr(pMsgTmp, "<?xml") || (strstr(pMsgTmp, "{") && strstr(pMsgTmp, "}"))) {
+						pSendMsg(RobotQQ, MsgType, (MsgType == MT_FRIEND ? NULL : MsgFrom), MsgFrom, pMsgTmp, 1);
+					}
 				}
 			}
 		}
@@ -270,8 +269,10 @@ dllexp int _stdcall IR_Event(char *RobotQQ, int MsgType, int MsgCType, char *Msg
 */
 dllexp void _stdcall IR_SetUp() {
 	if (NULL != szDatabase) {
-		if (RegisterEventProcess(ProcessEventForWindow)) {
-			PluginWinMain(szInstance, szDatabase, NULL, NULL);
+		if (FALSE == InterlockedExchange((LONG*)&szSetting, TRUE)) {
+			if (RegisterEventProcess(ProcessEventForWindow)) {
+				PluginWinMain(szInstance, szDatabase, NULL, NULL);
+			}
 		}
 	}
 }
@@ -333,7 +334,7 @@ unsigned WINAPI CheckUpgradeProc(LPVOID lpParameter) {
 							strcpy(sCrc, pProcess->valuestring);
 							if ((pProcess = cJSON_GetObjectItem(pApp, "link")) != NULL) {
 								CHAR sUpdateMsg[128] = { 0 };
-								sprintf_s(sUpdateMsg, "检测到新的版本%s，更新完毕后请重新加载插件", sVer);
+								sprintf_s(sUpdateMsg, "检测到新的版本%s，更新完毕后请重新添加插件", sVer);
 								fnPe(IDC_PUT_LOG, sUpdateMsg);
 								//更新文件(当前目录，待更新文件，目标文件dll，传入参数)
 								WCHAR wDirName[MAX_PATH] = { 0 }, wPathUpdateExeName[MAX_PATH] = { 0 }, wPathUpdateName[MAX_PATH] = { 0 }, wPathCurrentName[MAX_PATH] = { 0 }, wParamUpdateExe[MAX_PATH << 2] = { 0 };
@@ -480,6 +481,9 @@ BOOL HttpGet(const char* url, LP_CURL_PROCESS_VAL lp) {
 		}
 		LeaveCriticalSection(&szCs);
 	}
+	else {
+		strcpy(lp->msg, "请求处理中");
+	}
 	return ret;
 }
 
@@ -488,18 +492,25 @@ BOOL HttpGet(const char* url, LP_CURL_PROCESS_VAL lp) {
 */
 size_t GenCurlReqProcess(VOID* ptr, size_t size, size_t nmemb, VOID* stream) {
 	LP_CURL_PROCESS_VAL pProcessData = (LP_CURL_PROCESS_VAL)stream;
-	SIZE_T iTotal = size * nmemb;
-	if (iTotal && pProcessData != NULL) {
-		//大的文件采用自己分配的缓冲区，栈上空间限制，得在堆上分配
-		if (pProcessData->data) {
-			CopyMemory(pProcessData->data + pProcessData->i, ptr, iTotal);
+	if (NULL != pProcessData) {
+		SIZE_T iTotal = size * nmemb;
+		//防止内存溢出（溢出时抛弃掉）
+		if ((pProcessData->i + iTotal) > pProcessData->size) {
+			iTotal = pProcessData->size - pProcessData->i;
 		}
-		else {
-			CopyMemory(pProcessData->buffer + pProcessData->i, ptr, iTotal);
+		if (iTotal) {
+			//大的文件采用自己分配的缓冲区，栈上空间限制，得在堆上分配
+			if (pProcessData->data) {
+				CopyMemory(pProcessData->data + pProcessData->i, ptr, iTotal);
+			}
+			else {
+				CopyMemory(pProcessData->buffer + pProcessData->i, ptr, iTotal);
+			}
+			pProcessData->i += iTotal;
 		}
-		pProcessData->i += iTotal;
+		return iTotal;
 	}
-	return iTotal;
+	return 0;
 }
 
 /**
@@ -705,6 +716,10 @@ BOOL ProcessEventForWindow(INT iEvent, LPVOID pParam) {
 	else if (iEvent == IDC_PLUGIN_UNINSTALL) {
 		//卸载
 		pUninstallPlugin();
+		return TRUE;
+	}
+	else if (iEvent == IDC_PLUGIN_SETTING_FINISH) {
+		InterlockedExchange((LONG*)&szSetting, FALSE);
 		return TRUE;
 	}
 	return FALSE;
