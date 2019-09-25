@@ -6,6 +6,6 @@ https://d.cleverqq.cn/t-7331-1-1.html
 
 <img src="https://raw.githubusercontent.com/mengdj/cleverqq-xml-json-robot/master/example/ys1.gif" width="65%"/><br/> 
 <img src="https://raw.githubusercontent.com/mengdj/cleverqq-xml-json-robot/master/example/ys2.gif" width="65%"/><br/>
-<img src="https://raw.githubusercontent.com/mengdj/cleverqq-xml-json-robot/master/example/set.gif"/><br/>
-<img src="https://raw.githubusercontent.com/mengdj/cleverqq-xml-json-robot/master/example/v-qq.png" width="65%"/>
+<img src="https://raw.githubusercontent.com/mengdj/cleverqq-xml-json-robot/master/example/set.gif"/><br/><br/>
+<img src="https://raw.githubusercontent.com/mengdj/cleverqq-xml-json-robot/master/example/v-qq.png"/>
 
