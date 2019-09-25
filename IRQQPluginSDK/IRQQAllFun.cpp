@@ -309,6 +309,7 @@ unsigned WINAPI CheckUpgradeProc(LPVOID lpParameter) {
 		fnPe(IDC_PUT_LOG, "检测插件是否有新的版本");
 		CURL_PROCESS_VAL cpv = { 0 };
 		cpv.process = GenCurlReqProcess;
+		cpv.size = CURL_MAX_BUFFER_SIZE;
 		if (HttpGet("https://raw.githubusercontent.com/mengdj/cleverqq-xml-json-robot/master/Release/app.json", &cpv)) {
 			cJSON* pApp = NULL, *pProcess = NULL;
 			if ((pApp = cJSON_Parse((const char*)cpv.buffer)) != NULL) {
@@ -498,7 +499,7 @@ size_t GenCurlReqProcess(VOID* ptr, size_t size, size_t nmemb, VOID* stream) {
 	if (NULL != pProcessData) {
 		SIZE_T iTotal = size * nmemb;
 		//防止内存溢出（溢出时抛弃掉）
-		if ((pProcessData->i + iTotal) > pProcessData->size) {
+		if (pProcessData->size && ((pProcessData->i + iTotal) > pProcessData->size)) {
 			iTotal = pProcessData->size - pProcessData->i;
 		}
 		if (iTotal) {
