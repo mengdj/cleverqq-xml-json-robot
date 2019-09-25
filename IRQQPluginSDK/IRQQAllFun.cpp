@@ -440,6 +440,9 @@ unsigned WINAPI CheckUpgradeProc(LPVOID lpParameter) {
 				cJSON_Delete(pApp);
 			}
 		}
+		else {
+			LOGW << cpv.msg;
+		}
 	}
 	return S_OK;
 }
