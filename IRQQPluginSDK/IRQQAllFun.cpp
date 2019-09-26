@@ -4,7 +4,7 @@
 	@filename		IRQQAllFun.cpp
 	@author			mengdj@outlook.com
 	@date			2019.09.25
-	@version		1.1.8
+	@version		1.1.9
 */
 #define WIN32_LEAN_AND_MEAN  
 #include "constant.h"//常量名声明
@@ -12,6 +12,7 @@
 #include <process.h>
 #include <Windows.h>
 #include <stdio.h>
+#include <memory>
 #include "resource.h"
 #include <Shlwapi.h>
 #pragma comment(lib,"shlwapi.lib")
@@ -62,7 +63,7 @@
 
 #define MAJ_VER							1		//主版本
 #define MID_VER							1		//中版本
-#define MIN_VER							8		//次版本
+#define MIN_VER							9		//次版本
 #define COU_VER							3
 
 #define	IDC_PUT_LOG						1001
@@ -122,7 +123,7 @@ LOCAL const char *TECH_SUPPORT_QQ_GROUP = "753285973";
 dllexp char *  _stdcall IR_Create() {
 	char *szBuffer =
 		"插件名称{QQ卡片机}\n"
-		"插件版本{1.1.8}\n"
+		"插件版本{1.1.9}\n"
 		"插件作者{mengdj}\n"
 		"插件说明{发送json或xml转换成卡片,如没有返回则代表数据有误,请自行检查}\n"
 		"插件skey{8956RTEWDFG3216598WERDF3}"
@@ -311,31 +312,31 @@ unsigned WINAPI CheckUpgradeProc(LPVOID lpParameter) {
 		cpv.process = GenCurlReqProcess;
 		cpv.size = CURL_MAX_BUFFER_SIZE;
 		if (HttpGet("https://raw.githubusercontent.com/mengdj/cleverqq-xml-json-robot/master/Release/app.json", &cpv)) {
-			cJSON* pApp = NULL, *pProcess = NULL;
-			if ((pApp = cJSON_Parse((const char*)cpv.buffer)) != NULL) {
+			neb::CJsonObject oJson((const char*)cpv.buffer);
+			if (!oJson.IsEmpty()) {
 				//获取版本号(并检查是否需要更新)
-				if ((pProcess = cJSON_GetObjectItem(pApp, "version")) != NULL) {
+				std::string s_version, s_crc, s_link;
+				if (oJson.Get("version", s_version)) {
 					INT iValidVern[COU_VER] = { MAJ_VER ,MID_VER,MIN_VER }, iCouVer = 0;
-					BOOL bNeedUpdate = FALSE;
+					bool b_need_update = false;
 					CHAR *pNextToken = NULL;
 					CHAR sVer[24] = { 0 };
-					strcpy(sVer, pProcess->valuestring);
-					CHAR *pToken = strtok_s(pProcess->valuestring, ".", &pNextToken);
+					strcpy(sVer, s_version.c_str());
+					CHAR *pToken = strtok_s(sVer, ".", &pNextToken);
 					while (iCouVer < COU_VER && pToken != NULL) {
 						if (atoi(pToken) > iValidVern[iCouVer]) {
-							bNeedUpdate = TRUE;
+							b_need_update = true;
 							break;
 						}
 						pToken = strtok_s(NULL, ".", &pNextToken);
 						++iCouVer;
 					}
-					if (bNeedUpdate) {
-						if ((pProcess = cJSON_GetObjectItem(pApp, "crc")) != NULL) {
-							CHAR sCrc[16] = { 0 }, sTarCrc[16] = { 0 };
-							strcpy(sCrc, pProcess->valuestring);
-							if ((pProcess = cJSON_GetObjectItem(pApp, "link")) != NULL) {
+					if (b_need_update) {
+						if (oJson.Get("crc", s_crc)) {
+							CHAR sTargetCrc[16] = { 0 };
+							if (oJson.Get("link", s_link)) {
 								CHAR sUpdateMsg[128] = { 0 };
-								sprintf_s(sUpdateMsg, "检测到新的版本%s，更新完毕后请重新添加插件", sVer);
+								sprintf_s(sUpdateMsg, "检测到新的版本%s，更新完毕后请重新添加插件", s_version.c_str());
 								fnPe(IDC_PUT_LOG, sUpdateMsg);
 								//更新文件(当前目录，待更新文件，目标文件dll，传入参数)
 								WCHAR wDirName[MAX_PATH] = { 0 }, wPathUpdateExeName[MAX_PATH] = { 0 }, wPathUpdateName[MAX_PATH] = { 0 }, wPathCurrentName[MAX_PATH] = { 0 }, wParamUpdateExe[MAX_PATH << 2] = { 0 };
@@ -358,7 +359,7 @@ unsigned WINAPI CheckUpgradeProc(LPVOID lpParameter) {
 									NULL
 								);
 								if (cpv.param != INVALID_HANDLE_VALUE) {
-									if (HttpGet(pProcess->valuestring, &cpv)) {
+									if (HttpGet(s_link.c_str(), &cpv)) {
 										FlushFileBuffers(cpv.param);
 										//校验CRC(防止传输过程中文件出错)
 										BOOL bCRCValiate = FALSE;
@@ -369,13 +370,14 @@ unsigned WINAPI CheckUpgradeProc(LPVOID lpParameter) {
 											while (ReadFile(cpv.param, bCrcBuffer, 2048, &iRealBytes, NULL) && iRealBytes) {
 												crc = crc32(crc, bCrcBuffer, iRealBytes);
 											}
-											sprintf_s(sTarCrc, "%08X", crc);
-											if (strcmp(sTarCrc, sCrc) == 0) {
+											sprintf_s(sTargetCrc, "%08X", crc);
+											const char* s_crc_c = s_crc.c_str();
+											if (strcmp(sTargetCrc, s_crc_c) == 0) {
 												bCRCValiate = TRUE;
 											}
 											else {
 												CHAR sCrcErrMsg[32] = { 0 };
-												sprintf_s(sCrcErrMsg, "CRC校验错误 %s:%s", sCrc, sTarCrc);
+												sprintf_s(sCrcErrMsg, "CRC校验错误 %s:%s", s_crc.c_str(), s_crc_c);
 												fnPe(IDC_PUT_LOG, sCrcErrMsg);
 											}
 										}
@@ -438,7 +440,6 @@ unsigned WINAPI CheckUpgradeProc(LPVOID lpParameter) {
 						fnPe(IDC_PUT_LOG, "插件检测完毕，已是最新版本");
 					}
 				}
-				cJSON_Delete(pApp);
 			}
 		}
 		else {
@@ -552,72 +553,66 @@ BOOL ProcessEventForPluginGroup(INT iEvent, LPVOID pParam) {
 					//(
 					sJoinQQGroup += 1;
 					//);
-					INT iJsonQQGroupSize = strlen(sJoinQQGroup) - 2;
-					if (iJsonQQGroupSize) {
-						CHAR *pJsonQQGroup = (CHAR *)malloc(iJsonQQGroupSize);
-						if (pJsonQQGroup != NULL) {
-							ZeroMemory(pJsonQQGroup, iJsonQQGroupSize);
-							CopyMemory(pJsonQQGroup, sJoinQQGroup, iJsonQQGroupSize);
-							neb::CJsonObject oJson((const char*)pJsonQQGroup);
-							/**
+					const std::string s_group_list(sJoinQQGroup, strlen(sJoinQQGroup) - 2);
+					if (s_group_list.length()) {
+						neb::CJsonObject oJson(s_group_list);
+						/**
 							样本
 							{"code":0,"data":{"group":[{"auth":0,"flag":0,"groupid":753285973,"groupname":"爱QQ"}],"total":},"default":0,"message":"","subcode":0}
-							*/
-							int32 iCode = 0, iTotal = 0;
-							int iGroupSize = 0;
-							if (!oJson.IsEmpty()) {
-								if (!oJson["data"].IsNull("code") && oJson.Get("code", iCode) && iCode == 0) {
-									if (!oJson["data"].IsNull("total") && oJson["data"].Get("total", iTotal) && iTotal > 0) {
-										if (oJson["data"]["group"].IsArray() && (iGroupSize = oJson["data"]["group"].GetArraySize())) {
-											int iAuth = 0, iFlag = 0, iGroupId = 0, iAdd = 0;
-											SQLite::Transaction transaction(*szDatabase);
-											try {
-												SQLite::Statement  insert(*szDatabase, "INSERT INTO qq_group(qg_qq,qg_group_id,qg_group_name,qg_auth,qg_flag,qg_status) VALUES(?,?,?,?,?,0)");
-												SQLite::Statement  query(*szDatabase, "SELECT COUNT(id) AS C FROM qq_group WHERE qg_qq=? AND qg_group_id=? LIMIT 1");
-												for (int i = 0; i < iGroupSize; i++) {
-													oJson["data"]["group"][i].IsNull("auth") && oJson["data"]["group"][i].Get("auth", iAuth);
-													oJson["data"]["group"][i].IsNull("flag") && oJson["data"]["group"][i].Get("flag", iFlag);
-													if (!oJson["data"]["group"][i].IsNull("groupid") && oJson["data"]["group"][i].Get("groupid", iGroupId)) {
-														//required
-														query.clearBindings();
-														query.bind(1, atoi(sRobotQQ));
-														query.bind(2, iGroupId);
-														SQLite::Column oRows = szDatabase->execAndGet(query.getExpandedSQL());
-														if (!oRows.getInt()) {
-															insert.clearBindings();
-															insert.bind(1, atoi(sRobotQQ));
-															insert.bind(2, iGroupId);
-															insert.bind(3, oJson["data"]["group"][i]("groupname").c_str());
-															insert.bind(4, iAuth);
-															insert.bind(5, iFlag);
-															if (szDatabase->exec(insert.getExpandedSQL())) {
-																++iAdd;
-															}
+						*/
+						int32 iCode = 0, iTotal = 0;
+						int iGroupSize = 0;
+						if (!oJson.IsEmpty()) {
+							if (!oJson["data"].IsNull("code") && oJson.Get("code", iCode) && iCode == 0) {
+								if (!oJson["data"].IsNull("total") && oJson["data"].Get("total", iTotal) && iTotal > 0) {
+									if (oJson["data"]["group"].IsArray() && (iGroupSize = oJson["data"]["group"].GetArraySize())) {
+										int iAuth = 0, iFlag = 0, iGroupId = 0, iAdd = 0;
+										SQLite::Transaction transaction(*szDatabase);
+										try {
+											SQLite::Statement  insert(*szDatabase, "INSERT INTO qq_group(qg_qq,qg_group_id,qg_group_name,qg_auth,qg_flag,qg_status) VALUES(?,?,?,?,?,0)");
+											SQLite::Statement  query(*szDatabase, "SELECT COUNT(id) AS C FROM qq_group WHERE qg_qq=? AND qg_group_id=? LIMIT 1");
+											for (int i = 0; i < iGroupSize; i++) {
+												oJson["data"]["group"][i].IsNull("auth") && oJson["data"]["group"][i].Get("auth", iAuth);
+												oJson["data"]["group"][i].IsNull("flag") && oJson["data"]["group"][i].Get("flag", iFlag);
+												if (!oJson["data"]["group"][i].IsNull("groupid") && oJson["data"]["group"][i].Get("groupid", iGroupId)) {
+													//required
+													query.clearBindings();
+													query.bind(1, atoi(sRobotQQ));
+													query.bind(2, iGroupId);
+													SQLite::Column oRows = szDatabase->execAndGet(query.getExpandedSQL());
+													if (!oRows.getInt()) {
+														insert.clearBindings();
+														insert.bind(1, atoi(sRobotQQ));
+														insert.bind(2, iGroupId);
+														insert.bind(3, oJson["data"]["group"][i]("groupname").c_str());
+														insert.bind(4, iAuth);
+														insert.bind(5, iFlag);
+														if (szDatabase->exec(insert.getExpandedSQL())) {
+															++iAdd;
 														}
 													}
 												}
-												ZeroMemory(sMsg, sizeof(sMsg));
-												sprintf_s(sMsg, "初始化成功 群:%d 新增:%d", iGroupSize, iAdd);
-												pOutPutLog(sMsg);
-												transaction.commit();
 											}
-											catch (std::exception& ex) {
-												pOutPutLog(ex.what());
-											}
+											ZeroMemory(sMsg, sizeof(sMsg));
+											sprintf_s(sMsg, "初始化成功 群:%d 新增:%d", iGroupSize, iAdd);
+											pOutPutLog(sMsg);
+											transaction.commit();
 										}
-									}
-									else {
-										pOutPutLog("未找到群组");
+										catch (std::exception& ex) {
+											pOutPutLog(ex.what());
+										}
 									}
 								}
 								else {
-									pOutPutLog("解析数据群组列表出错-2");
+									pOutPutLog("未找到群组");
 								}
 							}
 							else {
-								pOutPutLog("解析数据群组列表出错-1");
+								pOutPutLog("解析数据群组列表出错-2");
 							}
-							free(pJsonQQGroup);
+						}
+						else {
+							pOutPutLog("解析数据群组列表出错-1");
 						}
 					}
 				}
