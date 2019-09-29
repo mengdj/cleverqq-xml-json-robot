@@ -6,11 +6,11 @@
 #include "SQLiteCpp/SQLiteCpp.h"
 #pragma comment(lib,"sqlite3.lib")
 #pragma comment(lib,"SQLiteCpp.lib")
-
+#include <memory>
 extern HINSTANCE	szGlobalHinstance;
 typedef BOOL(*ProcessEvent)(INT, LPVOID);
 ProcessEvent szEvent = NULL;
-LOCAL SQLite::Database *szDatabase = NULL;
+LOCAL std::shared_ptr<SQLite::Database> szShareDatabasePtr;
 
 unsigned WINAPI 	ThreadMsgProc(LPVOID lpParameter);
 HRESULT	WINAPI		InitSetWindow(HINSTANCE);
@@ -39,14 +39,16 @@ LPCTSTR CSettingWindow::GetWindowClassName(void) const {
 
 LRESULT CSettingWindow::OnDestroy(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& bHandled) {
 	m_GroupList->RemoveAll();
+	szShareDatabasePtr.reset();
 	return S_OK;
 }
 
 void CSettingWindow::InitWindow() {
 	m_GroupList = static_cast<CListUI*>(m_PaintManager.FindControl(_T("GROUP_LIST")));
-	if (NULL != m_GroupList&&NULL != szDatabase) {
+	SQLite::Database *tmp_database = szShareDatabasePtr.get();
+	if (NULL != m_GroupList&&tmp_database) {
 		try {
-			SQLite::Statement  query(*szDatabase, "SELECT id,qg_qq,qg_group_name,qg_status FROM qq_group");
+			SQLite::Statement  query(*tmp_database, "SELECT id,qg_qq,qg_group_name,qg_status FROM qq_group");
 			WCHAR *wGroupName = NULL;
 			WCHAR wNum[24] = { 0 };
 			CDialogBuilder builder;
@@ -111,23 +113,24 @@ void CSettingWindow::Notify(TNotifyUI& msg) {
 		else if (msg.pSender->GetName() == TEXT("GROUP_ENABLE_DISABLE")) {
 			CButtonUI *pGroupEnableDisable = static_cast<CButtonUI *>(msg.pSender);
 			INT id = pGroupEnableDisable->GetTag();
+			SQLite::Database *tmp_database=szShareDatabasePtr.get();
 			try {
-				SQLite::Statement  query(*szDatabase, "SELECT qg_status FROM qq_group WHERE id=?");
-				SQLite::Statement  update(*szDatabase, "UPDATE qq_group SET qg_status=? WHERE id=?");
+				SQLite::Statement  query(*tmp_database, "SELECT qg_status FROM qq_group WHERE id=?");
+				SQLite::Statement  update(*tmp_database, "UPDATE qq_group SET qg_status=? WHERE id=?");
 				query.bind(1, id);
 				update.bind(2, id);
-				SQLite::Column oRows = szDatabase->execAndGet(query.getExpandedSQL());
+				SQLite::Column oRows = tmp_database->execAndGet(query.getExpandedSQL());
 				if (oRows.getInt() == 0) {
 					//off
 					update.bind(1, 1);
-					if (szDatabase->exec(update.getExpandedSQL())) {
+					if (tmp_database->exec(update.getExpandedSQL())) {
 						pGroupEnableDisable->SetBkImage(_T("layout/switch_on.png"));
 					}
 				}
 				else {
 					//on
 					update.bind(1, 0);
-					if (szDatabase->exec(update.getExpandedSQL())) {
+					if (tmp_database->exec(update.getExpandedSQL())) {
 						pGroupEnableDisable->SetBkImage(_T("layout/switch_off.png"));
 					}
 				}
@@ -142,7 +145,8 @@ void CSettingWindow::Notify(TNotifyUI& msg) {
 }
 
 int WINAPI PluginWinMain(HINSTANCE hInstance, LPVOID pData, PSTR szCmdLine, int iCmdShow) {
-	szDatabase = (SQLite::Database*)pData;
+	//调用拷贝增加引用计数
+	szShareDatabasePtr = *reinterpret_cast<std::shared_ptr<SQLite::Database>*>(pData);
 	_beginthreadex(NULL, 0, ThreadMsgProc, hInstance, 0, NULL);
 	return 0;
 }

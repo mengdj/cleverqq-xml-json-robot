@@ -4,7 +4,7 @@
 	@filename		IRQQAllFun.cpp
 	@author			mengdj@outlook.com
 	@date			2019.09.25
-	@version		1.1.9
+	@version		1.2.1
 */
 #define WIN32_LEAN_AND_MEAN  
 #include "constant.h"//常量名声明
@@ -63,7 +63,7 @@
 
 #define MAJ_VER							1		//主版本
 #define MID_VER							2		//中版本
-#define MIN_VER							0		//次版本
+#define MIN_VER							1		//次版本
 #define COU_VER							3
 
 #define	IDC_PUT_LOG						1001
@@ -116,14 +116,14 @@ LOCAL HANDLE szUpgradeHandle = NULL;
 LOCAL CRITICAL_SECTION szCs = { 0 };
 LOCAL WCHAR szCfgDir[MAX_PATH] = { 0 };
 LOCAL BOOL szCfgInit = FALSE;
-LOCAL SQLite::Database *szDatabase = NULL;
 LOCAL const char *TECH_SUPPORT_QQ_GROUP = "753285973";
+LOCAL std::shared_ptr<SQLite::Database> szShareDatabasePtr;
 
 ///	IRQQ创建完毕
 dllexp char *  _stdcall IR_Create() {
 	char *szBuffer =
 		"插件名称{QQ卡片机}\n"
-		"插件版本{1.2.0}\n"
+		"插件版本{1.2.1}\n"
 		"插件作者{mengdj}\n"
 		"插件说明{发送json或xml转换成卡片,如没有返回则代表数据有误,请自行检查}\n"
 		"插件skey{8956RTEWDFG3216598WERDF3}"
@@ -165,12 +165,13 @@ dllexp int _stdcall IR_Event(char *RobotQQ, int MsgType, int MsgCType, char *Msg
 	if (MsgType == MT_FRIEND || MsgType == MT_GROUP) {
 		bool bAllowSend = true;
 		if (MsgType == MT_GROUP) {
-			bAllowSend = szDatabase == NULL ? false : true;
+			SQLite::Database *tmp_database_ptr = szShareDatabasePtr.get();
+			bAllowSend = tmp_database_ptr == NULL ? false : true;
 			if (bAllowSend) {
-				SQLite::Statement  query(*szDatabase, "SELECT COUNT(id) AS C FROM qq_group WHERE qg_group_id=? AND qg_qq=? AND qg_status=1 LIMIT 1");
+				SQLite::Statement  query(*tmp_database_ptr, "SELECT COUNT(id) AS C FROM qq_group WHERE qg_group_id=? AND qg_qq=? AND qg_status=1 LIMIT 1");
 				query.bind(1, atoi(MsgFrom));
 				query.bind(2, atoi(RobotQQ));
-				SQLite::Column oRows = szDatabase->execAndGet(query.getExpandedSQL());
+				SQLite::Column oRows = tmp_database_ptr->execAndGet(query.getExpandedSQL());
 				if (oRows.getInt() == 0) {
 					bAllowSend = false;
 				}
@@ -269,10 +270,10 @@ dllexp int _stdcall IR_Event(char *RobotQQ, int MsgType, int MsgCType, char *Msg
 	设置
 */
 dllexp void _stdcall IR_SetUp() {
-	if (NULL != szDatabase) {
+	if (szShareDatabasePtr.get()) {
 		if (FALSE == InterlockedExchange((LONG*)&szSetting, TRUE)) {
 			if (RegisterEventProcess(ProcessEventForWindow)) {
-				PluginWinMain(szInstance, szDatabase, NULL, NULL);
+				PluginWinMain(szInstance,reinterpret_cast<LPVOID>(&szShareDatabasePtr), NULL, NULL);
 			}
 		}
 	}
@@ -295,9 +296,7 @@ dllexp int _stdcall IR_DestroyPlugin() {
 		CloseHandle(szUpgradeHandle);
 		szUpgradeHandle = NULL;
 	}
-	if (NULL != szDatabase) {
-		delete szDatabase;
-	}
+	szShareDatabasePtr.reset();
 	return 0;
 }
 
@@ -567,10 +566,11 @@ BOOL ProcessEventForPluginGroup(INT iEvent, LPVOID pParam) {
 								if (!oJson["data"].IsNull("total") && oJson["data"].Get("total", iTotal) && iTotal > 0) {
 									if (oJson["data"]["group"].IsArray() && (iGroupSize = oJson["data"]["group"].GetArraySize())) {
 										int iAuth = 0, iFlag = 0, iGroupId = 0, iAdd = 0;
-										SQLite::Transaction transaction(*szDatabase);
+										SQLite::Database *tmp_database_ptr = szShareDatabasePtr.get();
+										SQLite::Transaction transaction(*tmp_database_ptr);
 										try {
-											SQLite::Statement  insert(*szDatabase, "INSERT INTO qq_group(qg_qq,qg_group_id,qg_group_name,qg_auth,qg_flag,qg_status) VALUES(?,?,?,?,?,0)");
-											SQLite::Statement  query(*szDatabase, "SELECT COUNT(id) AS C FROM qq_group WHERE qg_qq=? AND qg_group_id=? LIMIT 1");
+											SQLite::Statement  insert(*tmp_database_ptr, "INSERT INTO qq_group(qg_qq,qg_group_id,qg_group_name,qg_auth,qg_flag,qg_status) VALUES(?,?,?,?,?,0)");
+											SQLite::Statement  query(*tmp_database_ptr, "SELECT COUNT(id) AS C FROM qq_group WHERE qg_qq=? AND qg_group_id=? LIMIT 1");
 											for (int i = 0; i < iGroupSize; i++) {
 												oJson["data"]["group"][i].IsNull("auth") && oJson["data"]["group"][i].Get("auth", iAuth);
 												oJson["data"]["group"][i].IsNull("flag") && oJson["data"]["group"][i].Get("flag", iFlag);
@@ -579,7 +579,7 @@ BOOL ProcessEventForPluginGroup(INT iEvent, LPVOID pParam) {
 													query.clearBindings();
 													query.bind(1, atoi(sRobotQQ));
 													query.bind(2, iGroupId);
-													SQLite::Column oRows = szDatabase->execAndGet(query.getExpandedSQL());
+													SQLite::Column oRows = tmp_database_ptr->execAndGet(query.getExpandedSQL());
 													if (!oRows.getInt()) {
 														insert.clearBindings();
 														insert.bind(1, atoi(sRobotQQ));
@@ -587,7 +587,7 @@ BOOL ProcessEventForPluginGroup(INT iEvent, LPVOID pParam) {
 														insert.bind(3, oJson["data"]["group"][i]("groupname").c_str());
 														insert.bind(4, iAuth);
 														insert.bind(5, iFlag);
-														if (szDatabase->exec(insert.getExpandedSQL())) {
+														if (tmp_database_ptr->exec(insert.getExpandedSQL())) {
 															++iAdd;
 														}
 													}
@@ -665,18 +665,18 @@ BOOL ProcessEventForPluginCreate(INT iEvent, LPVOID pParam) {
 		}
 	}
 	//初始化sqlite库
-	if (bExistDir&& NULL == szDatabase) {
-		char *sTmpDatabase = NULL;
-		if (NULL != (sTmpDatabase = UnicodeToUTF8(wCfgDatabase))) {
+	if (bExistDir&& !szShareDatabasePtr.get()) {
+		char *sTmpDatabasePath = NULL;
+		if (NULL != (sTmpDatabasePath = UnicodeToUTF8(wCfgDatabase))) {
 			try {
 				//默认是不支持的中文路径的(需要转换到UTF-8)
-				szDatabase = new SQLite::Database(sTmpDatabase, SQLite::OPEN_READWRITE);
+				szShareDatabasePtr = std::make_shared<SQLite::Database>(sTmpDatabasePath, SQLite::OPEN_READWRITE);
 			}
 			catch (...) {
 				LOGW << "SQLITE 初始化失败";
 				bExistDir = FALSE;
 			}
-			free(sTmpDatabase);
+			free(sTmpDatabasePath);
 		}
 		szCfgInit = bExistDir;
 	}
